@@ -1,0 +1,226 @@
+{% extends 'home/base.html' %}
+{% block content %}
+<!-- Stylesheet Injection for Leaflet Map Engine -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<!-- Added CSRF Token Header for all internal HTMX POST requests -->
+<div class="flex-grow flex flex-col bg-[#f4f6f8]" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+    <div class="flex-grow p-6 space-y-6 max-w-[1600px] w-full mx-auto" id="dashboard-container">
+        
+        <!-- ROW 1: TOP HEADER LAYER -->
+        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div class="space-y-1">
+                <a href="{% url 'dashboard_home' %}" class="inline-flex items-center space-x-1.5 text-xs font-bold text-[#005f53] hover:text-[#00463d] uppercase tracking-wider transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                    <span>Back to Dashboard</span>
+                </a>
+                <h1 class="text-3xl font-black text-gray-900 tracking-tight font-mono">{{ bin.device_id|default:"SBWB-001" }}</h1>
+                <div class="text-sm text-gray-500 font-medium flex items-center space-x-2">
+                    <span>{{ bin.location_name|default:"Kigali Convention Centre" }}</span>
+                </div>
+            </div>
+            
+            <div class="md:text-right flex md:flex-col justify-between items-center md:items-end gap-2 border-t md:border-t-0 pt-4 md:pt-0 border-gray-100">
+                <div>
+                    {% if bin.is_online %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-wider">
+                            <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
+                            Online
+                        </span>
+                    {% else %}
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-rose-50 text-rose-700 border border-rose-200 uppercase tracking-wider">
+                            <span class="w-2.5 h-2.5 bg-rose-500 rounded-full mr-2"></span>
+                            Offline
+                        </span>
+                    {% endif %}
+                </div>
+                <span class="text-xs text-gray-400 font-semibold uppercase tracking-wider block mt-1">
+                    Last seen: <strong class="text-gray-600 font-mono">{{ bin.duration_status|default:"Just now" }}</strong>
+                </span>
+            </div>
+        </div>
+
+        <!-- ROW 2-4: KPI CARDS, STATUS FLAGS & SENSOR TABLE — polls itself every 3s -->
+        <div id="device-live"
+             class="space-y-6"
+             hx-get="{% url 'device_live_fragment' bin.id %}"
+             hx-trigger="every 3s"
+             hx-swap="innerHTML">
+            {% include 'home/_device_live.html' %}
+        </div>
+
+        <!-- ROW 3b: MAP (kept outside the polling region so Leaflet never re-initializes) -->
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col min-h-[350px]">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75">
+                <h2 class="text-sm font-black text-gray-900 uppercase tracking-wider">Device Location Mapping</h2>
+            </div>
+            <div id="map" class="w-full flex-grow z-10 min-h-[300px]"></div>
+        </div>
+
+        <!-- ROW 5: CONFIGURATION & REMOTE CONTROLS -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Left: Config Block -->
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75">
+                    <h2 class="text-sm font-black text-gray-900 uppercase tracking-wider">Device Configuration Properties</h2>
+                </div>
+                <div class="p-6 divide-y divide-gray-100 text-sm flex-grow flex flex-col justify-center">
+                    <div class="py-3 flex justify-between">
+                        <span class="text-gray-500 font-medium">WiFi SSID</span>
+                        <span class="font-mono text-gray-900 font-semibold">{{ bin.wifi_ssid|default:"SBWB_AP" }}</span>
+                    </div>
+                    <div class="py-3 flex justify-between">
+                        <span class="text-gray-500 font-medium">IP Address</span>
+                        <span class="font-mono text-gray-600">{{ bin.ip_address|default:"192.168.1.52" }}</span>
+                    </div>
+                    <div class="py-3 flex justify-between">
+                        <span class="text-gray-500 font-medium">Protocol</span>
+                        <span class="font-mono text-gray-600">HTTPS / WSS</span>
+                    </div>
+                    <div class="py-3 flex justify-between">
+                        <span class="text-gray-500 font-medium">HTTPS Host</span>
+                        <span class="font-mono text-gray-600">{{ request.get_host }}</span>
+                    </div>
+                    <div class="py-3 flex justify-between">
+                        <span class="text-gray-500 font-medium">HTTPS Endpoint</span>
+                        <span class="font-mono text-gray-600">/api/device/{{ bin.id|default:1 }}</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Remote Control Action Grid -->
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 flex flex-col justify-between">
+                <div>
+                    <h2 class="text-sm font-black text-gray-900 uppercase tracking-wider mb-4">Remote Manual Control Interlock</h2>
+                    
+                    <div class="grid grid-cols-2 gap-3.5">
+                        <!-- Lock / Unlock Lid -->
+                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                hx-post="/api/device/{{ bin.id|default:1 }}/lock/" hx-target="#command-banner" hx-swap="innerHTML">
+                            Lock Lid
+                        </button>
+                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-gray-500 hover:bg-gray-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                hx-post="/api/device/{{ bin.id|default:1 }}/unlock/" hx-target="#command-banner" hx-swap="innerHTML">
+                            Unlock Lid
+                        </button>
+
+                        <!-- UV Actions -->
+                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                hx-post="/api/device/{{ bin.id|default:1 }}/start-uv/" hx-target="#command-banner" hx-swap="innerHTML">
+                            Start UV
+                        </button>
+                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-gray-500 hover:bg-gray-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                hx-post="/api/device/{{ bin.id|default:1 }}/stop-uv/" hx-target="#command-banner" hx-swap="innerHTML">
+                            Stop UV
+                        </button>
+
+                        <!-- Heater Actions -->
+                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                hx-post="/api/device/{{ bin.id|default:1 }}/start-heater/" hx-target="#command-banner" hx-swap="innerHTML">
+                            Start Heater
+                        </button>
+                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-gray-500 hover:bg-gray-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                hx-post="/api/device/{{ bin.id|default:1 }}/stop-heater/" hx-target="#command-banner" hx-swap="innerHTML">
+                            Stop Heater
+                        </button>
+
+                        <!-- Special Controls -->
+                        <button class="col-span-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-amber-500 hover:bg-amber-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                hx-post="/api/device/{{ bin.id|default:1 }}/restart/" hx-target="#command-banner" hx-swap="innerHTML">
+                            Restart MCU
+                        </button>
+                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-[#005f53] bg-emerald-50 hover:bg-emerald-100 border border-[#005f53] active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                hx-post="/api/device/{{ bin.id|default:1 }}/sync-clock/" hx-target="#command-banner" hx-swap="innerHTML">
+                            Sync Clock
+                        </button>
+                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-[#005f53] hover:bg-[#004d43] active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                hx-get="{% url 'dashboard_home' %}" hx-target="body" hx-push-url="true">
+                            Refresh Data
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ROW 6: FAULT LOG CARD -->
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75 flex justify-between items-center">
+                <h2 class="text-sm font-black text-gray-900 uppercase tracking-wider">Fault Log</h2>
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold {% if bin.has_faults %}bg-rose-50 text-rose-800 border-rose-200{% else %}bg-emerald-50 text-emerald-800 border-emerald-200{% endif %} border">
+                    STATUS: {% if bin.has_faults %}CRITICAL{% else %}NOMINAL{% endif %}
+                </span>
+            </div>
+            <div class="p-6 text-sm text-gray-500 font-mono italic">
+                {% if bin.active_faults %}
+                    {% for fault in bin.active_faults %}
+                        <p class="text-rose-600 mb-2">[{{ fault.timestamp }}] {{ fault.error_code }} - {{ fault.message }}</p>
+                    {% endfor %}
+                {% else %}
+                    No active hardware faults registered on system registers.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- ROW 7: BOTTOM TIMELINE -->
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75">
+                <h2 class="text-sm font-black text-gray-900 uppercase tracking-wider">Operational Sequence Log (Scrolling Activity Feed)</h2>
+            </div>
+            <div class="p-6 max-h-72 overflow-y-auto space-y-6">
+                {% for log in bin.logs %}
+                <div class="flex items-start space-x-4">
+                    <div class="text-sm font-mono font-bold text-[#005f53] bg-emerald-50 px-2 py-1 rounded select-none shrink-0">{{ log.timestamp|date:"H:i" }}</div>
+                    <div class="flex-grow pt-1 {% if not forloop.last %}border-b border-gray-100 pb-3{% endif %}">
+                        <p class="text-sm font-bold text-gray-950">{{ log.title }}</p>
+                        <p class="text-xs text-gray-400 mt-0.5">{{ log.message }}</p>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="flex items-start space-x-4">
+                    <div class="text-sm font-mono font-bold text-[#005f53] bg-emerald-50 px-2 py-1 rounded select-none shrink-0">Now</div>
+                    <div class="flex-grow pt-1">
+                        <p class="text-sm font-bold text-gray-950">System Initialized</p>
+                        <p class="text-xs text-gray-400 mt-0.5">Awaiting telemetry from hardware nodes.</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Map Script Generation & Initialization -->
+<script>
+    // Coordinate defaults dynamically injected from Django context
+    const deviceLat = {{ bin.latitude|default:"-1.9542" }};
+    const deviceLng = {{ bin.longitude|default:"30.0924" }};
+
+    // Initialize Map
+    var map = L.map('map').setView([deviceLat, deviceLng], 15);
+
+    // Modern light-mode canvas tiles
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20
+    }).addTo(map);
+
+    // Place Device Circle Marker
+    L.circleMarker([deviceLat, deviceLng], {
+        radius: 11,
+        fillColor: "#005f53",
+        color: "#ffffff",
+        weight: 3,
+        fillOpacity: 1
+    }).addTo(map).bindPopup(`
+        <div style="font-family: sans-serif; font-size:12px; line-height: 1.4;">
+            <b style="font-size:13px; color:#005f53;">${"{{ bin.device_id|default:'SBWB-001' }}"}</b><br>
+            Location: ${"{{ bin.location_name|default:'Kigali Convention Centre' }}"}
+        </div>
+    `).openPopup();
+</script>
+{% endblock %}

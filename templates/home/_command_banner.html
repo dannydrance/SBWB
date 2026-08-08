@@ -1,0 +1,23 @@
+{% if bin.last_command_status == 'PENDING' %}
+<div class="flex items-center gap-2 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold uppercase tracking-wider">
+    <svg class="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
+    </svg>
+    Command &quot;{{ bin.last_command }}&quot; sent — waiting for device confirmation&hellip;
+</div>
+{% elif bin.last_command_status == 'ACKED' %}
+<div class="flex items-center gap-2 px-4 py-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold uppercase tracking-wider">
+    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+    </svg>
+    Command &quot;{{ bin.last_command }}&quot; confirmed applied by device{% if bin.last_command_time %} at {{ bin.last_command_time|date:"H:i:s" }}{% endif %}.
+</div>
+{% elif bin.last_command_status == 'TIMEOUT' %}
+<div class="flex items-center gap-2 px-4 py-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold uppercase tracking-wider">
+    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86l-8.18 14.14A1.5 1.5 0 003.36 20h17.28a1.5 1.5 0 001.25-1.98L13.71 3.86a1.5 1.5 0 00-2.72 0z"></path>
+    </svg>
+    No confirmation received for &quot;{{ bin.last_command }}&quot; — check the device is online and try again.
+</div>
+{% endif %}

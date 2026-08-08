@@ -1,0 +1,145 @@
+<div id="command-banner" class="mb-1 empty:hidden">
+    {% include 'home/_command_banner.html' %}
+</div>
+
+<!-- KPI CARDS -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+    <!-- Fill Level -->
+    <div class="bg-white border border-gray-200 rounded-xl p-5 flex items-center space-x-4 shadow-sm">
+        <div class="p-3.5 bg-emerald-50 text-[#005f53] rounded-lg">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+        </div>
+        <div>
+            <span class="text-xs text-gray-400 font-bold uppercase tracking-wider block">Fill Level</span>
+            <span class="text-3xl font-black text-gray-900 font-mono">{{ bin.fill_level|default:"0" }}%</span>
+        </div>
+    </div>
+
+    <!-- Gas Sensor -->
+    <div class="bg-white border border-gray-200 rounded-xl p-5 flex items-center space-x-4 shadow-sm">
+        <div class="p-3.5 bg-amber-50 text-amber-600 rounded-lg">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+        </div>
+        <div>
+            <span class="text-xs text-gray-400 font-bold uppercase tracking-wider block">Gas Sensor</span>
+            <span class="text-3xl font-black text-gray-900 font-mono">{{ bin.gas_value|default:"382" }} <span class="text-sm font-semibold text-gray-400">ppm</span></span>
+        </div>
+    </div>
+
+    <!-- Temperature -->
+    <div class="bg-white border border-gray-200 rounded-xl p-5 flex items-center space-x-4 shadow-sm">
+        <div class="p-3.5 bg-rose-50 text-rose-600 rounded-lg">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+        </div>
+        <div>
+            <span class="text-xs text-gray-400 font-bold uppercase tracking-wider block">Temperature</span>
+            <span class="text-3xl font-black text-gray-900 font-mono">{{ bin.temperature|default:"31" }}°C</span>
+        </div>
+    </div>
+
+    <!-- Humidity -->
+    <div class="bg-white border border-gray-200 rounded-xl p-5 flex items-center space-x-4 shadow-sm">
+        <div class="p-3.5 bg-sky-50 text-sky-600 rounded-lg">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1.5a1.5 1.5 0 001.5 1.5H15M9 21h6a2 2 0 002-2V9l-6-6H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+        </div>
+        <div>
+            <span class="text-xs text-gray-400 font-bold uppercase tracking-wider block">Humidity</span>
+            <span class="text-3xl font-black text-gray-900 font-mono">{{ bin.humidity|default:"78" }}%</span>
+        </div>
+    </div>
+</div>
+
+<!-- DEVICE STATUS FLAGS -->
+<div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75">
+        <h2 class="text-sm font-black text-gray-900 uppercase tracking-wider">Device Status Flags</h2>
+    </div>
+    <div class="p-6 flex-grow flex flex-col justify-center divide-y divide-gray-100 text-sm">
+        <!-- Status Row: Lid -->
+        <div class="py-3.5 flex justify-between items-center">
+            <span class="font-semibold text-gray-600">Lid Interlock</span>
+            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono">
+                <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1.5"></span>
+                {% if bin.lid %}CLOSED{% else %}OPEN{% endif %}
+            </span>
+        </div>
+        <!-- Status Row: UV -->
+        <div class="py-3.5 flex justify-between items-center">
+            <span class="font-semibold text-gray-600">UV Disinfection</span>
+            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold {% if bin.uvState %}bg-amber-50 text-amber-800 border-amber-200 animate-pulse{% else %}bg-emerald-50 text-emerald-800 border-emerald-200{% endif %} border font-mono">
+                <span class="w-1.5 h-1.5 {% if bin.uvState %}bg-amber-500{% else %}bg-emerald-500{% endif %} rounded-full mr-1.5"></span>
+                {% if bin.uvState %} RUNNING {% else %} STOP {% endif %}
+            </span>
+        </div>
+        <!-- Status Row: Heater -->
+        <div class="py-3.5 flex justify-between items-center">
+            <span class="font-semibold text-gray-600">Enclosure Heater</span>
+            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold {% if bin.heaterState %}bg-amber-50 text-amber-800 border-amber-200{% else %}bg-emerald-50 text-emerald-800 border-emerald-200{% endif %} border font-mono">
+                <span class="w-1.5 h-1.5 {% if bin.heaterState %}bg-amber-500{% else %}bg-emerald-500{% endif %} rounded-full mr-1.5"></span>
+                {% if bin.heaterState %} HEATING {% else %} STOP {% endif %}
+            </span>
+        </div>
+        <!-- Status Row: Bin Full -->
+        <div class="py-3.5 flex justify-between items-center">
+            <span class="font-semibold text-gray-600">Capacity Alert</span>
+            {% if bin.binFull %}
+            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200 font-mono">
+                <span class="w-1.5 h-1.5 bg-rose-500 rounded-full mr-1.5"></span>
+                YES
+            </span>
+            {% else %}
+            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono">
+                <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1.5"></span>
+                NO
+            </span>
+            {% endif %}
+        </div>
+        <!-- Status Row: Metal -->
+        <div class="py-3.5 flex justify-between items-center">
+            <span class="font-semibold text-gray-600">Metal Inductive Sensor</span>
+            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold {% if bin.metal %}bg-rose-50 text-rose-800 border-rose-200{% else %}bg-emerald-50 text-emerald-800 border-emerald-200{% endif %} border font-mono">
+                <span class="w-1.5 h-1.5 {% if bin.metal %}bg-rose-500{% else %}bg-emerald-500{% endif %} rounded-full mr-1.5"></span>
+                {% if bin.metal %} FOUND {% else %} CLEAR {% endif %}
+            </span>
+        </div>
+    </div>
+</div>
+
+<!-- LIVE SENSOR REGISTER -->
+<div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75">
+        <h2 class="text-sm font-black text-gray-900 uppercase tracking-wider">Live Sensor Register Ingestion</h2>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse whitespace-nowrap">
+            <thead>
+                <tr class="bg-gray-100/50 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200 font-bold">
+                    <th class="p-4 pl-6">Hardware Sensor Hook</th>
+                    <th class="p-4 pr-6 text-right">Direct Real-Time Ingest Value</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 font-mono text-sm">
+                <tr class="hover:bg-gray-50/50 transition">
+                    <td class="p-4 pl-6 text-gray-600 font-medium">MQ135 Gas Air Quality</td>
+                    <td class="p-4 pr-6 text-right font-bold text-gray-950">{{ bin.gas_value|default:"382" }} ppm</td>
+                </tr>
+                <tr class="hover:bg-gray-50/50 transition">
+                    <td class="p-4 pl-6 text-gray-600 font-medium">Enclosure Core Temperature</td>
+                    <td class="p-4 pr-6 text-right font-bold text-gray-950">{{ bin.elementTemp|default:"31" }}°C</td>
+                </tr>
+                <tr class="hover:bg-gray-50/50 transition">
+                    <td class="p-4 pl-6 text-gray-600 font-medium">DHT11 Ambient Temp</td>
+                    <td class="p-4 pr-6 text-right font-bold text-gray-950">{{ bin.temperature|default:"31" }}°C</td>
+                </tr>
+                <tr class="hover:bg-gray-50/50 transition">
+                    <td class="p-4 pl-6 text-gray-600 font-medium">Ultrasonic Distance Sensor</td>
+                    <td class="p-4 pr-6 text-right font-bold text-gray-950">{{ bin.binLevel|default:"0" }}</td>
+                </tr>
+                <tr class="hover:bg-gray-50/50 transition">
+                    <td class="p-4 pl-6 text-gray-600 font-medium">DHT11 Humidity Sensor</td>
+                    <td class="p-4 pr-6 text-right font-bold text-gray-950">{{ bin.humidity|default:"80" }}%</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>

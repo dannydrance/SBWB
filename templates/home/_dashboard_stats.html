@@ -1,0 +1,43 @@
+<!-- Total Bins -->
+<div class="bg-white border border-gray-200 rounded-xl p-5 flex items-center space-x-4 shadow-sm hover:shadow-md transition duration-200">
+    <div class="p-3.5 bg-emerald-100 text-[#005f53] rounded-lg">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+    </div>
+    <div>
+        <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider block">Total Bins Registered</span>
+        <span class="text-3xl font-extrabold text-gray-900 font-mono">{{ total }}</span>
+    </div>
+</div>
+
+<!-- Fullness / Critical Alerts -->
+<div class="bg-white border border-gray-200 rounded-xl p-5 flex items-center space-x-4 shadow-sm hover:shadow-md transition duration-200">
+    <div class="p-3.5 bg-rose-100 text-rose-600 rounded-lg">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+    </div>
+    <div>
+        <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider block">Critical Fill / Full Bins</span>
+        <span class="text-3xl font-extrabold text-rose-600 font-mono">{{ bins_full_count|default:"0" }}</span>
+    </div>
+</div>
+
+<!-- Gas VOC Anomalies -->
+<div class="bg-white border border-gray-200 rounded-xl p-5 flex items-center space-x-4 shadow-sm hover:shadow-md transition duration-200">
+    <div class="p-3.5 bg-amber-100 text-amber-600 rounded-lg">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+    </div>
+    <div>
+        <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider block">Air Quality Warnings</span>
+        <span class="text-3xl font-extrabold text-amber-600 font-mono">{{ gas_anomalies|default:"0" }}</span>
+    </div>
+</div>
+
+<!-- Offline Nodes -->
+<div class="bg-white border border-gray-200 rounded-xl p-5 flex items-center space-x-4 shadow-sm hover:shadow-md transition duration-200">
+    <div class="p-3.5 bg-gray-100 text-gray-500 rounded-lg">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-3.536 4.978 4.978 0 011.414-3.536m0 0L11 11"></path></svg>
+    </div>
+    <div>
+        <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider block">Offline Hardware Nodes</span>
+        <span class="text-3xl font-extrabold text-gray-600 font-mono">{{ offline }}</span>
+    </div>
+</div>

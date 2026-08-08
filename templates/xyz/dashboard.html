@@ -1,0 +1,324 @@
+{% extends 'home/base.html' %}
+{% block content %}
+<!-- Stylesheet Injection for Leaflet Map Engine -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+<div class="min-h-screen bg-[#f4f6f8] text-gray-800 flex flex-col font-sans">
+    
+    <!-- Enterprise Pine-Green Navigation Bar -->
+   <!-- <header class="bg-[#005f53] text-white px-6 py-4 shadow-md flex justify-between items-center select-none">
+        <div class="flex items-center space-x-3">
+            <span class="text-lg font-bold tracking-wide uppercase">Waste Management Administration</span>
+            <span class="text-xs bg-white/20 px-2.5 py-0.5 rounded font-mono">v2.4</span>
+        </div>
+        <div class="flex items-center space-x-6 text-sm">
+            <div class="flex items-center space-x-1.5 text-emerald-300">
+                <span class="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></span>
+                <span class="text-xs font-medium">Realtime - active telemetry</span>
+            </div>
+            {% if user.is_authenticated %}
+                <span class="text-gray-200">Operator: <strong class="text-white">{{ user.username }}</strong></span>
+                <form action="{% url 'logout' %}" method="post" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="text-rose-200 hover:text-white transition font-medium text-xs uppercase tracking-wider">Logout</button>
+                </form>
+            {% endif %}
+        </div>
+    </header> -->
+
+    <!-- Main Workspace Container -->
+    <div class="flex-grow p-6 space-y-6 max-w-[1600px] w-full mx-auto">
+        
+        <!-- Top Statistics/Metrics Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <!-- Total Bins -->
+            <div class="bg-white border border-gray-200 rounded-xl p-5 flex items-center space-x-4 shadow-sm hover:shadow-md transition duration-200">
+                <div class="p-3.5 bg-emerald-100 text-[#005f53] rounded-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                </div>
+                <div>
+                    <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider block">Total Bins Registered</span>
+                    <span class="text-3xl font-extrabold text-gray-900 font-mono">{{ total }}</span>
+                </div>
+            </div>
+
+            <!-- Fullness / Critical Alerts -->
+            <div class="bg-white border border-gray-200 rounded-xl p-5 flex items-center space-x-4 shadow-sm hover:shadow-md transition duration-200">
+                <div class="p-3.5 bg-rose-100 text-rose-600 rounded-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <div>
+                    <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider block">Critical Fill / Full Bins</span>
+                    <span class="text-3xl font-extrabold text-rose-600 font-mono">
+                        {{ bins_full_count|default:"0" }}{{ bins_full_count|default:"0" }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Gas VOC Anomalies -->
+            <div class="bg-white border border-gray-200 rounded-xl p-5 flex items-center space-x-4 shadow-sm hover:shadow-md transition duration-200">
+                <div class="p-3.5 bg-amber-100 text-amber-600 rounded-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                </div>
+                <div>
+                    <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider block">Air Quality Warnings</span>
+                    <span class="text-3xl font-extrabold text-amber-600 font-mono">
+                        {% if gas_anomalies %}{{ gas_anomalies }}{% else %}0{% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Offline Nodes -->
+            <div class="bg-white border border-gray-200 rounded-xl p-5 flex items-center space-x-4 shadow-sm hover:shadow-md transition duration-200">
+                <div class="p-3.5 bg-gray-100 text-gray-500 rounded-lg">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-3.536 4.978 4.978 0 011.414-3.536m0 0L11 11"></path></svg>
+                </div>
+                <div>
+                    <span class="text-xs text-gray-500 font-semibold uppercase tracking-wider block">Offline Hardware Nodes</span>
+                    <span class="text-3xl font-extrabold text-gray-600 font-mono">{{ offline }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Split Panel Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Half (Table and Logs) -->
+            <div class="lg:col-span-7 space-y-6 flex flex-col">
+                
+                <!-- Bins Grid Table Wrapper -->
+                <div class="bg-white border border-gray-200 rounded-xl shadow-sm flex-grow overflow-hidden flex flex-col">
+                    <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                        <div>
+                            <h2 class="text-base font-bold text-gray-900 tracking-tight">Active Smart Bins</h2>
+                            <p class="text-xs text-gray-500">Node registry monitoring locations and hardware states.</p>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse whitespace-nowrap">
+                            <thead>
+                                <tr class="bg-gray-100/80 text-gray-500 text-xs uppercase tracking-wider border-b border-gray-200 font-bold">
+                                    <th class="p-4 pl-6">Device ID</th>
+                                    <th class="p-4">Location</th>
+                                    <th class="p-4">Connection</th>
+                                    <th class="p-4">Fullness</th>
+                                    <th class="p-4">Gas (AQI)</th>
+                                    <th class="p-4 pr-6 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 text-sm">
+                                {% for bin in bins %}
+                                <tr class="hover:bg-gray-50/80 transition duration-150">
+                                    <td class="p-4 pl-6 font-mono font-bold text-gray-900">{{ bin.device_id }}</td>
+                                    <td class="p-4 text-gray-600 font-medium">{{ bin.location_name }}</td>
+                                    <td class="p-4">
+                                        {% if bin.is_online %}
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Online</span>
+                                        {% else %}
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">Offline</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="p-4">
+                                        <div class="flex items-center space-x-2">
+                                            <div class="w-16 bg-gray-200 rounded-full h-2 overflow-hidden">
+                                                <div class="{% if bin.fill_level > 85 %}bg-rose-500{% elif bin.fill_level > 50 %}bg-amber-500{% else %}bg-emerald-500{% endif %} h-2 rounded-full" style="width: {{ bin.fill_level }}%"></div>
+                                            </div>
+                                            <span class="font-mono text-xs font-bold text-gray-700">{{ bin.fill_level }}%</span>
+                                        </div>
+                                    </td>
+                                    <td class="p-4 font-mono font-medium {% if bin.gas_value > 600 %}text-amber-600{% else %}text-emerald-700{% endif %}">
+                                        {{ bin.gas_value }} ppm
+                                    </td>
+                                    <td class="p-4 pr-6 text-right">
+                                        <a href="{% url 'device_detail' bin.id %}"
+                                        class="inline-flex items-center px-3 py-1.5 rounded-md bg-[#005f53] text-white text-xs font-semibold hover:bg-[#00463d] transition">
+                                            View
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="p-10 text-center text-gray-400 italic bg-gray-50/50">No smart bins mapped in data store.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Live Alarms / Exceptions Log -->
+                <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                        <div>
+                            <h2 class="text-base font-bold text-gray-900 tracking-tight">System Alarms Log</h2>
+                            <p class="text-xs text-gray-500">Live operational exceptions occurring across deployment cells.</p>
+                        </div>
+                    </div>
+                    <div class="divide-y divide-gray-100 max-h-56 overflow-y-auto">
+                        {% for bin in bins %}
+                            {% if bin.alert_status != 'NOMINAL' %}
+                            <div class="p-4 flex items-center justify-between hover:bg-rose-50/30 transition duration-150">
+                                <div class="flex items-center space-x-3">
+                                    <div class="p-2 rounded bg-rose-100 text-rose-600 font-bold text-xs">ERR</div>
+                                    <div>
+                                        <p class="text-sm font-semibold text-gray-900">Sensor {{ bin.device_id }}</p>
+                                        <p class="text-xs text-gray-500">At location: {{ bin.location_name }}</p>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-black bg-rose-100 text-rose-700 border border-rose-200">
+                                        {{ bin.alert_status }}
+                                    </span>
+                                    <p class="text-[10px] text-gray-400 font-mono mt-1">Logged: {{ bin.duration_status }}</p>
+                                </div>
+                            </div>
+                            {% endif %}
+                        {% empty %}
+                            <div class="p-8 text-center text-gray-400 italic">No historical operational alerts on register.</div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Half (Live Interactive Leaflet Map) -->
+            <div class="lg:col-span-5 flex flex-col h-full min-h-[500px]">
+                <div class="bg-white border border-gray-200 rounded-xl shadow-sm flex-grow overflow-hidden flex flex-col h-full">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center select-none">
+                        <div>
+                            <h2 class="text-base font-bold text-gray-900 tracking-tight">Geospatial Ingestion Map</h2>
+                            <p class="text-xs text-gray-500">Geographic tracking profile of microcontrollers.</p>
+                        </div>
+                    </div>
+                    <!-- Leaflet Container -->
+                    <div id="map" class="w-full flex-grow h-[450px] lg:h-full z-0"></div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+<!-- Map Script Generation & Initialization -->
+<script>
+    // Default location (Kigali) if geolocation is unavailable   
+    const defaultLat = -1.9441;
+    const defaultLng = 30.0619;
+
+    // Initialize the map
+    var map = L.map('map').setView([defaultLat, defaultLng], 12);
+
+    // Light-mode modern canvas tile layout
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        subdomains: 'abcd',
+        maxZoom: 20
+    }).addTo(map);
+
+    function loadMarkers(centerLat, centerLng) {
+
+        // Create locations around the detected center
+        const locations = [
+            [centerLat, centerLng],
+            [centerLat + 0.005, centerLng + 0.005],
+            [centerLat - 0.005, centerLng - 0.004],
+            [centerLat + 0.004, centerLng - 0.006],
+            [centerLat - 0.004, centerLng + 0.006]
+        ];
+
+        var index = 0;
+
+        {% for bin in bins %}
+
+            var lat = locations[index % locations.length][0];
+            var lng = locations[index % locations.length][1];
+
+            var fill = Number("{{ bin.fill_level }}");
+            var markerColor = "green";
+
+            if (fill > 85) {
+                markerColor = "red";
+            } else if (fill > 50) {
+                markerColor = "orange";
+            }
+
+            var circleMarker = L.circleMarker([lat, lng], {
+                radius: 10,
+                fillColor: markerColor,
+                color: "#fff",
+                weight: 2,
+                fillOpacity: 0.95
+            }).addTo(map);
+
+            circleMarker.bindPopup(`
+                <div style="font-family: inherit; font-size:13px;">
+                    <h4 style="margin:0 0 5px 0; font-weight:800; color:#005f53;">
+                        Sensor {{ bin.device_id }}
+                    </h4>
+
+                    <strong>Location:</strong> {{ bin.location_name }}<br>
+                    <strong>Fullness:</strong> {{ bin.fill_level }}%<br>
+                    <strong>Gas (Air Quality):</strong> {{ bin.gas_value }} ppm<br>
+                    <strong>Alert:</strong> {{ bin.alert_status }}<br>
+                    <strong>Status:</strong>
+                    {% if bin.is_online %}
+                        <span style="color:green;font-weight:bold;">Online</span>
+                    {% else %}
+                        <span style="color:red;font-weight:bold;">Offline</span>
+                    {% endif %}
+                </div>
+            `);
+
+            index++;
+
+        {% endfor %}
+    }
+
+    // Detect user's current location
+    if (navigator.geolocation) {
+
+        navigator.geolocation.getCurrentPosition(
+
+            function(position) {
+
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+
+                // Center the map
+                map.setView([lat, lng], 15);
+
+                // Show user's location
+                L.marker([lat, lng])
+                    .addTo(map)
+                    .bindPopup("<b>Disinfection Cell A</b>")
+                    .openPopup();
+
+                loadMarkers(lat, lng);
+
+            },
+
+            function(error) {
+
+                console.log("Location unavailable. Using default location.");
+                loadMarkers(defaultLat, defaultLng);
+
+            },
+
+            {
+                enableHighAccuracy: true,
+                timeout: 10000,
+                maximumAge: 60000
+            }
+
+        );
+
+    } else {
+
+        loadMarkers(defaultLat, defaultLng);
+
+    }
+</script>
+{% endblock %}

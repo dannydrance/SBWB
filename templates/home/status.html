@@ -1,0 +1,97 @@
+{% extends 'home/base.html' %}
+{% block content %}
+<div class="min-h-screen bg-[#f4f6f8] text-gray-800 flex flex-col font-sans">
+    
+    <!-- Header Space -->
+    <div class="max-w-[1600px] w-full mx-auto px-6 pt-8 pb-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-6 border-b border-gray-200">
+            <div>
+                <div class="flex items-center space-x-2 mb-1">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#005f53]"></span>
+                    <span class="text-xs font-bold uppercase tracking-widest text-[#005f53]">Core Telemetry Engine</span>
+                </div>
+                <h2 class="text-2xl font-black text-gray-950 tracking-tight">System Diagnostics & Analytics</h2>
+                <p class="text-xs text-gray-500">Real-time verification of ingestion networks, microservices, and active hardware clusters.</p>
+            </div>
+            <a href="{% url 'dashboard_home' %}" class="inline-flex items-center text-xs font-bold uppercase tracking-wider bg-white border border-gray-200 hover:bg-gray-50 px-5 py-3 rounded-lg text-gray-700 transition duration-150 shadow-sm">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Analytics Dashboard Content -->
+    <div class="max-w-[1600px] w-full mx-auto px-6 pb-12 flex-grow">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Left Side: System Metrics & Network State -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Ingestion Health Panel -->
+                <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                    <h3 class="text-xs font-black uppercase tracking-widest text-[#005f53] mb-5">Ingestion API Health</h3>
+                    <div class="space-y-6">
+                        <div>
+                            <div class="flex justify-between items-end text-xs mb-1.5">
+                                <span class="text-gray-500 font-semibold">Endpoint Availability (<code class="bg-gray-100 px-1 py-0.5 rounded text-gray-700">/api/telemetry/</code>)</span>
+                                <span class="text-emerald-700 font-bold font-mono">100% Operational</span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                <div class="bg-emerald-500 h-2 rounded-full" style="width: 100%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-end text-xs mb-1.5">
+                                <span class="text-gray-500 font-semibold">Database Transaction Write Latency</span>
+                                <span class="text-emerald-700 font-bold font-mono">4.2ms</span>
+                            </div>
+                            <div class="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                                <div class="bg-emerald-500 h-2 rounded-full" style="width: 8%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Node Statistics Breakdown Panels -->
+                <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                    <h3 class="text-xs font-black uppercase tracking-widest text-gray-500 mb-5">Node Allocation Breakdown</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                        <div class="bg-gray-50 p-4 rounded-xl border border-gray-100 text-center">
+                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Total Bins</span>
+                            <p class="text-2xl font-extrabold text-gray-900 font-mono mt-1">{{ total }}</p>
+                        </div>
+                        <div class="bg-emerald-50/40 p-4 rounded-xl border border-emerald-100 text-center">
+                            <span class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Online</span>
+                            <p class="text-2xl font-extrabold text-emerald-700 font-mono mt-1">{{ online }}</p>
+                        </div>
+                        <div class="bg-rose-50/40 p-4 rounded-xl border border-rose-100 text-center">
+                            <span class="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Offline</span>
+                            <p class="text-2xl font-extrabold text-rose-700 font-mono mt-1">{{ offline }}</p>
+                        </div>
+                        <div class="bg-amber-50/40 p-4 rounded-xl border border-amber-100 text-center">
+                            <span class="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Anomalies</span>
+                            <p class="text-2xl font-extrabold text-amber-700 font-mono mt-1">{{ critical_count }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Side: Live Log Output terminal -->
+            <div class="lg:col-span-4 flex flex-col h-full min-h-[350px]">
+                <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col flex-grow h-full">
+                    <h3 class="text-xs font-black uppercase tracking-widest text-gray-500 mb-4">Live Framework Logs</h3>
+                    
+                    <!-- Clean Light-Gray Terminal Emulator -->
+                    <div class="bg-gray-950 rounded-xl p-4 font-mono text-xs text-gray-300 flex-grow overflow-y-auto space-y-2.5 h-[280px] shadow-inner">
+                        <p class="text-gray-500"><span class="text-gray-600">[2026-07-15 11:22:01]</span> Ingestion listener bound on socket port 8000.</p>
+                        <p class="text-emerald-400"><span class="text-gray-600">[2026-07-15 11:31:12]</span> POST /api/telemetry/ from Node_01 - 200 OK</p>
+                        <p class="text-amber-400"><span class="text-gray-600">[2026-07-15 11:45:00]</span> Warning: Node_02 timeout period exceeded.</p>
+                        <p class="text-gray-500"><span class="text-gray-600">[2026-07-15 11:50:32]</span> Database garbage collection execution complete.</p>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+{% endblock %}

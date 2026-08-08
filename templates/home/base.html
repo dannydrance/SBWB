@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SBWB Control Panel</title>
+    <!-- Tailwind CSS Engine -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- HTMX Engine for Live Telemetry Swaps -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+</head>
+<body class="bg-[#f4f6f8] text-gray-800 font-sans tracking-tight min-h-screen flex flex-col antialiased">
+
+    <!-- Global Application Navigation -->
+    <nav class="fixed top-0 left-0 right-0 z-50 bg-[#005f53] text-white border-b border-[#004d43] px-6 py-4 shadow-sm select-none">
+        <div class="max-w-[1600px] mx-auto flex justify-between items-center">
+            
+            <!-- Left Brand Segment SBWB Telemetry Grid -->  
+            <div class="flex items-center space-x-3">
+                <div class="w-2.5 h-2.5 bg-emerald-400 rounded-full animate-pulse"></div>
+                <span class="text-sm sm:text-lg font-bold tracking-wider uppercase">Waste Management Administration</span>
+            </div>
+
+            <!-- Right Segment Controls -->
+            {% if user.is_authenticated %}
+            <div class="flex items-center space-x-4 sm:space-x-6 text-xs uppercase tracking-wider font-bold">
+                <a href="{% url 'dashboard_home' %}" class="text-gray-200 hover:text-white transition duration-150">
+                    Dashboard
+                </a>
+                <a href="{% url 'system_status' %}" class="text-gray-200 hover:text-white transition duration-150">
+                    Status
+                </a>
+                
+                <span class="h-4 w-px bg-[#004d43]"></span>
+
+                <span class="text-gray-200 hidden sm:inline">Operator: <strong class="text-white">{{ user.username }}</strong></span>
+                <form action="{% url 'logout' %}" method="post" class="inline m-0">
+                    {% csrf_token %}
+                    <button type="submit" class="text-red-300 hover:text-red-100 transition font-medium text-xs uppercase tracking-wider">Logout</button>
+                </form>
+            </div>
+            {% endif %}
+            
+        </div>
+    </nav>
+
+    <!-- Content Workspace (Adjusted top padding for fixed navbar) -->
+    <main id="main-content" class="flex-grow flex flex-col pt-20">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Universal Footer Layer -->
+    <footer class="bg-white border-t border-gray-200 py-4 px-6 text-[11px] font-semibold text-gray-400 text-center tracking-wider uppercase select-none">
+        SBWB Hardware Integration Layer &copy; 2026 Engine Active.
+    </footer>
+
+</body>
+</html>

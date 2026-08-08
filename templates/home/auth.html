@@ -1,0 +1,68 @@
+{% extends 'home/base.html' %}
+{% block content %}
+<div class="flex-grow flex items-center justify-center px-4 py-16 bg-[#f4f6f8]">
+    <div class="max-w-4xl w-full grid grid-cols-1 md:grid-cols-2 gap-8">
+        
+        <!-- Enterprise Login Panel -->
+        <div class="bg-white border border-gray-200 rounded-xl p-8 shadow-md flex flex-col justify-between">
+            <div>
+                <div class="flex items-center space-x-2 mb-4">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#005f53]"></span>
+                    <span class="text-xs font-bold uppercase tracking-widest text-[#005f53]">Secure Access Portal</span>
+                </div>
+                <h2 class="text-2xl font-black text-gray-950 tracking-tight mb-2">Operator Login</h2>
+                <p class="text-xs text-gray-500 mb-6">Authenticate credentials to access secure hardware control paths and telemetry matrices.</p>
+            </div>
+            
+            <form method="POST" action="{% url 'login_view' %}" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-gray-500 font-bold mb-1.5">Username</label>
+                    <input type="text" name="username" required 
+                           class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-[#005f53] focus:ring-2 focus:ring-[#005f53]/10 transition">
+                </div>
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-gray-500 font-bold mb-1.5">Password</label>
+                    <input type="password" name="password" required 
+                           class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-[#005f53] focus:ring-2 focus:ring-[#005f53]/10 transition">
+                </div>
+                <button type="submit" 
+                        class="w-full mt-2 bg-[#005f53] hover:bg-[#004d43] text-white font-bold py-3 rounded-lg text-xs uppercase tracking-widest transition duration-150 shadow-md shadow-[#005f53]/10">
+                    Authenticate Session
+                </button>
+            </form>
+        </div>
+
+        <!-- Registration Panel -->
+        <div class="bg-white/60 border border-gray-200 border-dashed rounded-xl p-8 shadow-sm flex flex-col justify-between">
+            <div>
+                <div class="flex items-center space-x-2 mb-4">
+                    <span class="w-2.5 h-2.5 rounded-full bg-gray-400"></span>
+                    <span class="text-xs font-bold uppercase tracking-widest text-gray-500">Device Provisioning</span>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800 tracking-tight mb-2">Register Operator</h2>
+                <p class="text-xs text-gray-500 mb-6">Initialize and authorize a new supervisor node profile on this localized subnet.</p>
+            </div>
+            
+            <form method="POST" action="{% url 'register_view' %}" class="space-y-4">
+                {% csrf_token %}
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1.5">Username</label>
+                    <input type="text" name="username" required 
+                           class="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 transition">
+                </div>
+                <div>
+                    <label class="block text-xs uppercase tracking-wider text-gray-400 font-semibold mb-1.5">Password</label>
+                    <input type="password" name="password" required 
+                           class="w-full bg-white border border-gray-200 rounded-lg px-3.5 py-2.5 text-sm text-gray-900 focus:outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-200 transition">
+                </div>
+                <button type="submit" 
+                        class="w-full mt-2 bg-white hover:bg-gray-50 text-gray-700 font-bold py-3 rounded-lg text-xs uppercase tracking-widest border border-gray-200 transition duration-150">
+                    Create Account
+                </button>
+            </form>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
