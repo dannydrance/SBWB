@@ -13,6 +13,11 @@ class SmartBin(models.Model):
 
     device_id = models.CharField(max_length=50, unique=True)
     location_name = models.CharField(max_length=100)
+    system_name = models.CharField(max_length=100, default='Smart Biomedical Waste Bin')
+    system_version = models.CharField(max_length=40, blank=True, default='')
+    mac_address = models.CharField(max_length=32, blank=True, default='')
+    wifi_ssid = models.CharField(max_length=64, blank=True, default='')
+    ip_address = models.CharField(max_length=45, blank=True, default='')
     fill_level = models.IntegerField(default=0)
     gas_value = models.IntegerField(default=0)
     alert_status = models.CharField(max_length=20, choices=ALERT_CHOICES, default='NOMINAL')
@@ -50,7 +55,7 @@ class SmartBin(models.Model):
 
     @property
     def is_online(self):
-        return timezone.now() - self.last_seen < timedelta(minutes=5)
+        return timezone.now() - self.last_seen < timedelta(seconds=12)
 
     @property
     def duration_status(self):
@@ -62,7 +67,8 @@ class SmartBin(models.Model):
         if hours > 0:
             return f"{hours}h {minutes}m ago"
         if minutes == 0:
-            return "just now"
+            seconds = max(0, diff.seconds)
+            return "just now" if seconds < 3 else f"{seconds}s ago"
         return f"{minutes}m ago"
 
 

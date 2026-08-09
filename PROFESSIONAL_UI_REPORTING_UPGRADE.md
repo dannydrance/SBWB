@@ -50,3 +50,12 @@ Historical charts begin accumulating after the new migration is applied and new 
 ## Real-time behavior
 
 The dashboard and live device telemetry continue using HTMX partial updates instead of full page refreshes. Historical chart datasets refresh every 15 seconds using the analytics JSON endpoints, so charts update without repainting the complete page.
+
+
+## August 2026 control, PDF and device identity update
+- Added professional PDF export for individual devices and the full system.
+- Remote controls now use state-aware toggle switches for interlock, UV and heater. Toggle position/color is derived from latest device telemetry.
+- System & Connectivity is independently HTMX-polled every 2 seconds.
+- Added server-side system metadata: system name, version, ESP MAC, connected Wi-Fi SSID and IP address.
+- ESP32 About page transmits these identity/connectivity fields plus editable device location.
+- Apply migration `0007_smartbin_system_identity_connectivity.py` before use.

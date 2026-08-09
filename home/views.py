@@ -7,11 +7,25 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 from django.http import HttpResponse, JsonResponse
+from django.db.models import Avg, Max, Min
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 
 from .models import SmartBin, TelemetryRecord
+
+try:
+    from reportlab.lib import colors
+    from reportlab.lib.enums import TA_LEFT
+    from reportlab.lib.pagesizes import A4, landscape
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, KeepTogether
+    from reportlab.graphics.shapes import Drawing
+    from reportlab.graphics.charts.linecharts import HorizontalLineChart
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
 
 GAS_ANOMALY_THRESHOLD = 600
 COMMAND_TIMEOUT_SECONDS = 30
@@ -198,6 +212,12 @@ def device_live_fragment(request, bin_id):
 
 
 @login_required(login_url='auth_view')
+def device_controls_fragment(request, bin_id):
+    smart_bin = _resolve_command_status(get_object_or_404(SmartBin, id=bin_id))
+    return render(request, 'home/_device_controls.html', {'bin': smart_bin})
+
+
+@login_required(login_url='auth_view')
 def analytics_api(request):
     days = _period_days(request)
     trend, alerts, sample_count = _system_analytics(days)
@@ -271,6 +291,151 @@ def device_report_csv(request, bin_id):
     return response
 
 
+
+def _pdf_response(filename):
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def _pdf_styles():
+    styles = getSampleStyleSheet()
+    styles.add(ParagraphStyle(name='SBWBTitle', parent=styles['Title'], fontName='Helvetica-Bold', fontSize=20, leading=24, textColor=colors.HexColor('#064E3B'), spaceAfter=6))
+    styles.add(ParagraphStyle(name='SBWBSub', parent=styles['Normal'], fontSize=8.5, leading=12, textColor=colors.HexColor('#64748B')))
+    styles.add(ParagraphStyle(name='SBWBHeading', parent=styles['Heading2'], fontName='Helvetica-Bold', fontSize=11, leading=14, textColor=colors.HexColor('#0F172A'), spaceBefore=8, spaceAfter=6))
+    styles.add(ParagraphStyle(name='SBWBBody', parent=styles['Normal'], fontSize=8.5, leading=12, textColor=colors.HexColor('#334155')))
+    return styles
+
+
+def _pdf_table(data, col_widths=None, header=True, font_size=7.5):
+    table = Table(data, colWidths=col_widths, repeatRows=1 if header else 0, hAlign='LEFT')
+    commands = [
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), font_size),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#334155')),
+        ('GRID', (0, 0), (-1, -1), 0.35, colors.HexColor('#CBD5E1')),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('ROWBACKGROUNDS', (0, 1 if header else 0), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+        ('LEFTPADDING', (0, 0), (-1, -1), 5), ('RIGHTPADDING', (0, 0), (-1, -1), 5),
+        ('TOPPADDING', (0, 0), (-1, -1), 4), ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]
+    if header:
+        commands += [('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#064E3B')), ('TEXTCOLOR', (0, 0), (-1, 0), colors.white), ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold')]
+    table.setStyle(TableStyle(commands))
+    return table
+
+
+def _line_chart_series(category_names, series, labels, width=500, height=180):
+    drawing = Drawing(width, height)
+    if not category_names or not series:
+        return drawing
+    chart = HorizontalLineChart()
+    chart.x = 45; chart.y = 28; chart.width = width - 70; chart.height = height - 52
+    chart.data = series
+    chart.categoryAxis.categoryNames = category_names
+    chart.categoryAxis.labels.fontSize = 5.5
+    chart.categoryAxis.labels.angle = 30
+    chart.categoryAxis.labels.boxAnchor = 'ne'
+    chart.categoryAxis.labels.dy = -3
+    chart.valueAxis.labels.fontSize = 6
+    chart.valueAxis.valueMin = 0
+    chart.lines.strokeWidth = 1.5
+    palette = [colors.HexColor('#059669'), colors.HexColor('#D97706'), colors.HexColor('#2563EB'), colors.HexColor('#DC2626')]
+    for idx, _ in enumerate(series):
+        chart.lines[idx].strokeColor = palette[idx % len(palette)]
+    drawing.add(chart)
+    # compact legend
+    from reportlab.graphics.shapes import String, Rect
+    x = 50
+    for idx, label in enumerate(labels):
+        drawing.add(Rect(x, height-13, 8, 2.5, fillColor=palette[idx % len(palette)], strokeColor=None))
+        drawing.add(String(x+12, height-16, label, fontName='Helvetica', fontSize=6.5, fillColor=colors.HexColor('#334155')))
+        x += 92
+    return drawing
+
+
+def _line_chart(records, fields, labels, width=500, height=180):
+    category_names = [timezone.localtime(r.recorded_at).strftime('%d %b %H:%M') for r in records]
+    series = [[float(getattr(r, field) or 0) for r in records] for field in fields]
+    return _line_chart_series(category_names, series, labels, width=width, height=height)
+
+
+def _pdf_unavailable():
+    return HttpResponse('PDF reporting requires reportlab. Install dependencies from requirements.txt.', status=503, content_type='text/plain')
+
+
+@login_required(login_url='auth_view')
+def device_report_pdf(request, bin_id):
+    if not REPORTLAB_AVAILABLE:
+        return _pdf_unavailable()
+    smart_bin = get_object_or_404(SmartBin, id=bin_id)
+    days = _period_days(request, default=30)
+    since = timezone.now() - timedelta(days=days)
+    records = list(smart_bin.telemetry_records.filter(recorded_at__gte=since).order_by('recorded_at'))
+    stamp = timezone.localtime().strftime('%Y%m%d_%H%M')
+    safe_id = ''.join(c for c in smart_bin.device_id if c.isalnum() or c in ('-', '_'))
+    response = _pdf_response(f'SBWB_{safe_id}_report_{stamp}.pdf')
+    doc = SimpleDocTemplate(response, pagesize=A4, rightMargin=16*mm, leftMargin=16*mm, topMargin=15*mm, bottomMargin=15*mm, title=f'SBWB Device Report - {smart_bin.device_id}')
+    st = _pdf_styles(); story = []
+    story += [Paragraph('SBWB Device Report', st['SBWBTitle']), Paragraph(f'Generated {timezone.localtime():%Y-%m-%d %H:%M:%S} | Reporting period: {days} day(s)', st['SBWBSub']), Spacer(1, 8)]
+    meta = [
+        ['System', 'Value'], ['System name', smart_bin.system_name or '-'], ['System ID', smart_bin.device_id], ['System version', smart_bin.system_version or '-'],
+        ['MAC address', smart_bin.mac_address or '-'], ['Location', smart_bin.location_name or '-'], ['Wi-Fi', smart_bin.wifi_ssid or '-'], ['IP address', smart_bin.ip_address or '-'],
+        ['Connectivity', 'ONLINE' if smart_bin.is_online else 'OFFLINE'], ['Last seen', timezone.localtime(smart_bin.last_seen).strftime('%Y-%m-%d %H:%M:%S')], ['Alert status', smart_bin.alert_status],
+    ]
+    story += [_pdf_table(meta, [48*mm, 115*mm]), Spacer(1, 10)]
+    summary = [['Current metric', 'Value'], ['Fill level', f'{smart_bin.fill_level}%'], ['Gas', f'{smart_bin.gas_value} ppm'], ['Ambient temperature', f'{smart_bin.temperature:.1f} C'], ['Element temperature', f'{smart_bin.elementTemp:.1f} C'], ['Humidity', f'{smart_bin.humidity:.1f}%'], ['UV', 'ON' if smart_bin.uvState else 'OFF'], ['Heater', 'ON' if smart_bin.heaterState else 'OFF'], ['Interlock', 'LOCKED' if smart_bin.interlock else 'UNLOCKED']]
+    story += [Paragraph('Current operating snapshot', st['SBWBHeading']), _pdf_table(summary, [60*mm, 55*mm]), Spacer(1, 10)]
+    if records:
+        plotted = records[-48:]
+        story += [Paragraph('Fill and gas trend', st['SBWBHeading']), _line_chart(plotted, ['fill_level','gas_value'], ['Fill %','Gas ppm']), Paragraph('Environmental trend', st['SBWBHeading']), _line_chart(plotted, ['temperature','element_temp','humidity'], ['Ambient C','Element C','Humidity %'])]
+        details = [['Timestamp','Fill %','Gas','Ambient C','Element C','Humidity %','Alert']]
+        for r in records[-60:]:
+            details.append([timezone.localtime(r.recorded_at).strftime('%d %b %H:%M'), f'{r.fill_level:.1f}', f'{r.gas_value:.0f}', f'{r.temperature:.1f}', f'{r.element_temp:.1f}', f'{r.humidity:.1f}', r.alert_status])
+        story += [PageBreak(), Paragraph('Recent telemetry samples', st['SBWBHeading']), _pdf_table(details, [29*mm,18*mm,18*mm,22*mm,22*mm,22*mm,30*mm], font_size=6.7)]
+    else:
+        story += [Paragraph('No historical samples are available in the selected period. The current live snapshot above is still valid.', st['SBWBBody'])]
+    doc.build(story)
+    return response
+
+
+@login_required(login_url='auth_view')
+def system_report_pdf(request):
+    if not REPORTLAB_AVAILABLE:
+        return _pdf_unavailable()
+    days = _period_days(request, default=30)
+    since = timezone.now() - timedelta(days=days)
+    bins = list(SmartBin.objects.all().order_by('device_id'))
+    records = list(TelemetryRecord.objects.select_related('smart_bin').filter(recorded_at__gte=since).order_by('recorded_at'))
+    stamp = timezone.localtime().strftime('%Y%m%d_%H%M')
+    response = _pdf_response(f'SBWB_full_system_report_{stamp}.pdf')
+    doc = SimpleDocTemplate(response, pagesize=landscape(A4), rightMargin=12*mm, leftMargin=12*mm, topMargin=12*mm, bottomMargin=12*mm, title='SBWB Full System Report')
+    st = _pdf_styles(); story=[]
+    online = sum(1 for b in bins if b.is_online)
+    story += [Paragraph('SBWB Full System Report', st['SBWBTitle']), Paragraph(f'Generated {timezone.localtime():%Y-%m-%d %H:%M:%S} | Reporting period: {days} day(s)', st['SBWBSub']), Spacer(1,8)]
+    kpis = [['Registered devices','Online','Offline','Active alerts','Telemetry samples'], [str(len(bins)), str(online), str(len(bins)-online), str(sum(1 for b in bins if b.alert_status != 'NOMINAL')), str(len(records))]]
+    story += [_pdf_table(kpis, [45*mm]*5), Spacer(1,10), Paragraph('Device fleet snapshot', st['SBWBHeading'])]
+    fleet=[['System ID','Location','Status','Fill %','Gas ppm','UV','Heater','Interlock','Wi-Fi / IP','Version']]
+    for b in bins:
+        fleet.append([b.device_id,b.location_name,'ONLINE' if b.is_online else 'OFFLINE',str(b.fill_level),str(b.gas_value),'ON' if b.uvState else 'OFF','ON' if b.heaterState else 'OFF','LOCKED' if b.interlock else 'UNLOCKED',f'{b.wifi_ssid or "-"} / {b.ip_address or "-"}',b.system_version or '-'])
+    story += [_pdf_table(fleet, [32*mm,38*mm,18*mm,16*mm,18*mm,14*mm,16*mm,20*mm,48*mm,22*mm], font_size=6.5)]
+    trend, _, _ = _system_analytics(days)
+    if trend:
+        recent_trend = trend[-60:]
+        story += [Spacer(1,10), Paragraph('System trend - fleet averages', st['SBWBHeading']), _line_chart_series(
+            [point['label'] for point in recent_trend],
+            [[float(point['fill']) for point in recent_trend], [float(point['gas']) for point in recent_trend]],
+            ['Average fill %', 'Average gas ppm'], width=730, height=190)]
+    story += [PageBreak(), Paragraph('Per-device reporting summary', st['SBWBHeading'])]
+    for b in bins:
+        qs = b.telemetry_records.filter(recorded_at__gte=since)
+        agg = qs.aggregate(avg_fill=Avg('fill_level'), max_fill=Max('fill_level'), avg_gas=Avg('gas_value'), max_gas=Max('gas_value'), min_temp=Min('temperature'), max_temp=Max('temperature'))
+        rows=[['Metric','Value'],['Samples',str(qs.count())],['Average fill',f"{agg['avg_fill']:.1f}%" if agg['avg_fill'] is not None else '-'],['Maximum fill',f"{agg['max_fill']:.1f}%" if agg['max_fill'] is not None else '-'],['Average gas',f"{agg['avg_gas']:.1f} ppm" if agg['avg_gas'] is not None else '-'],['Maximum gas',f"{agg['max_gas']:.1f} ppm" if agg['max_gas'] is not None else '-'],['Temperature range',f"{agg['min_temp']:.1f} - {agg['max_temp']:.1f} C" if agg['min_temp'] is not None else '-'],['Current alert',b.alert_status]]
+        story += [KeepTogether([Paragraph(f'{b.device_id} - {b.location_name}', st['SBWBHeading']), _pdf_table(rows, [45*mm,55*mm]), Spacer(1,7)])]
+    doc.build(story)
+    return response
+
+
 @csrf_exempt
 def bin_telemetry_ingress(request):
     if request.method != 'POST':
@@ -291,7 +456,12 @@ def bin_telemetry_ingress(request):
         smart_bin, _ = SmartBin.objects.update_or_create(
             device_id=device_id,
             defaults={
-                'location_name': data.get('location', 'Unassigned'),
+                'location_name': (data.get('location') or 'Unassigned')[:100],
+                'system_name': (data.get('systemName') or 'Smart Biomedical Waste Bin')[:100],
+                'system_version': (data.get('systemVersion') or '')[:40],
+                'mac_address': (data.get('mac') or '')[:32],
+                'wifi_ssid': (data.get('wifi') or '')[:64],
+                'ip_address': (data.get('ip') or '')[:45],
                 'fill_level': data.get('binLevel', 0),
                 'gas_value': data.get('gas', 0),
                 'alert_status': alert,

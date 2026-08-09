@@ -1,0 +1,48 @@
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75 flex items-center justify-between">
+            <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wider">System &amp; Connectivity</h2>
+            {% if bin.is_online %}<span class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700"><span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>Live</span>{% else %}<span class="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-rose-700"><span class="w-2 h-2 rounded-full bg-rose-500"></span>Offline</span>{% endif %}
+        </div>
+        <div class="p-6 divide-y divide-gray-100 text-sm flex-grow">
+            <div class="py-2.5 flex justify-between gap-4"><span class="text-gray-500 font-medium">System name</span><span class="text-right text-gray-900 font-semibold">{{ bin.system_name|default:"—" }}</span></div>
+            <div class="py-2.5 flex justify-between gap-4"><span class="text-gray-500 font-medium">System ID</span><span class="font-mono text-gray-900 font-semibold">{{ bin.device_id }}</span></div>
+            <div class="py-2.5 flex justify-between gap-4"><span class="text-gray-500 font-medium">Version</span><span class="font-mono text-gray-700">{{ bin.system_version|default:"—" }}</span></div>
+            <div class="py-2.5 flex justify-between gap-4"><span class="text-gray-500 font-medium">ESP MAC</span><span class="font-mono text-gray-700">{{ bin.mac_address|default:"—" }}</span></div>
+            <div class="py-2.5 flex justify-between gap-4"><span class="text-gray-500 font-medium">Wi-Fi</span><span class="text-right font-mono text-gray-700">{{ bin.wifi_ssid|default:"—" }}</span></div>
+            <div class="py-2.5 flex justify-between gap-4"><span class="text-gray-500 font-medium">IP address</span><span class="font-mono text-gray-700">{{ bin.ip_address|default:"—" }}</span></div>
+            <div class="py-2.5 flex justify-between gap-4"><span class="text-gray-500 font-medium">Location</span><span class="text-right text-gray-700">{{ bin.location_name|default:"Unassigned" }}</span></div>
+            <div class="py-2.5 flex justify-between items-center"><span class="text-gray-500 font-medium">Alert status</span><span class="inline-flex px-2 py-0.5 rounded text-xs font-bold border {% if bin.alert_status == 'NOMINAL' %}bg-emerald-50 text-emerald-800 border-emerald-200{% else %}bg-rose-50 text-rose-800 border-rose-200{% endif %}">{{ bin.alert_status }}</span></div>
+            <div class="py-2.5 flex justify-between gap-4"><span class="text-gray-500 font-medium">Last seen</span><span class="font-mono text-xs text-gray-600">{{ bin.duration_status }}</span></div>
+            <div class="py-2.5 flex justify-between items-center"><span class="text-gray-500 font-medium">Command status</span><span class="inline-flex px-2 py-0.5 rounded text-xs font-bold border {% if bin.last_command_status == 'ACKED' %}bg-emerald-50 text-emerald-800 border-emerald-200{% elif bin.last_command_status == 'PENDING' %}bg-amber-50 text-amber-800 border-amber-200{% elif bin.last_command_status == 'TIMEOUT' %}bg-rose-50 text-rose-800 border-rose-200{% else %}bg-gray-50 text-gray-500 border-gray-200{% endif %}">{{ bin.last_command_status }}</span></div>
+        </div>
+    </div>
+
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+        <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75">
+            <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Remote Controls</h2>
+            <p class="text-xs text-gray-500 mt-1">Toggle position follows the latest state confirmed by device telemetry.</p>
+        </div>
+        <div class="p-6 divide-y divide-gray-100 flex-grow">
+            <div class="py-4 flex items-center justify-between gap-5">
+                <div><p class="text-sm font-bold text-gray-800">Lid interlock</p><p class="text-xs text-gray-500">{{ bin.interlock|yesno:"Locked,Unlocked" }}</p></div>
+                <button type="button" aria-label="Toggle lid interlock" class="relative inline-flex h-8 w-16 shrink-0 items-center rounded-full transition {% if bin.interlock %}bg-emerald-600{% else %}bg-slate-300{% endif %}" hx-post="{% if bin.interlock %}{% url 'api_device_command' bin.id 'unlock' %}{% else %}{% url 'api_device_command' bin.id 'lock' %}{% endif %}" hx-target="#command-banner" hx-swap="innerHTML"><span class="inline-block h-6 w-6 rounded-full bg-white shadow transition-transform {% if bin.interlock %}translate-x-9{% else %}translate-x-1{% endif %}"></span></button>
+            </div>
+            <div class="py-4 flex items-center justify-between gap-5">
+                <div><p class="text-sm font-bold text-gray-800">UV disinfection</p><p class="text-xs {% if bin.uvState %}text-emerald-600{% else %}text-gray-500{% endif %}">{% if bin.uvState %}Active{% else %}Off{% endif %}</p></div>
+                <button type="button" aria-label="Toggle UV" class="relative inline-flex h-8 w-16 shrink-0 items-center rounded-full transition {% if bin.uvState %}bg-violet-600{% else %}bg-slate-300{% endif %}" hx-post="{% if bin.uvState %}{% url 'api_device_command' bin.id 'stop-uv' %}{% else %}{% url 'api_device_command' bin.id 'start-uv' %}{% endif %}" hx-target="#command-banner" hx-swap="innerHTML"><span class="inline-block h-6 w-6 rounded-full bg-white shadow transition-transform {% if bin.uvState %}translate-x-9{% else %}translate-x-1{% endif %}"></span></button>
+            </div>
+            <div class="py-4 flex items-center justify-between gap-5">
+                <div><p class="text-sm font-bold text-gray-800">Heater control</p><p class="text-xs {% if bin.heaterState %}text-amber-600{% else %}text-gray-500{% endif %}">{% if bin.heaterState %}Relay active{% else %}Relay off{% endif %}</p></div>
+                <button type="button" aria-label="Toggle heater" class="relative inline-flex h-8 w-16 shrink-0 items-center rounded-full transition {% if bin.heaterState %}bg-amber-500{% else %}bg-slate-300{% endif %}" hx-post="{% if bin.heaterState %}{% url 'api_device_command' bin.id 'stop-heater' %}{% else %}{% url 'api_device_command' bin.id 'start-heater' %}{% endif %}" hx-target="#command-banner" hx-swap="innerHTML"><span class="inline-block h-6 w-6 rounded-full bg-white shadow transition-transform {% if bin.heaterState %}translate-x-9{% else %}translate-x-1{% endif %}"></span></button>
+            </div>
+            <div class="pt-5">
+                <span class="text-[11px] font-bold uppercase tracking-widest text-gray-400 block mb-2">Maintenance actions</span>
+                <div class="grid grid-cols-2 gap-3">
+                    <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-amber-500 hover:bg-amber-600 rounded-lg" hx-post="{% url 'api_device_command' bin.id 'restart' %}" hx-target="#command-banner" hx-swap="innerHTML">Restart MCU</button>
+                    <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[#005f53] bg-emerald-50 hover:bg-emerald-100 border border-[#005f53] rounded-lg" hx-post="{% url 'api_device_command' bin.id 'sync-clock' %}" hx-target="#command-banner" hx-swap="innerHTML">Sync Clock</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

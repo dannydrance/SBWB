@@ -13,6 +13,7 @@
                 <a href="?days=90" class="px-3 py-2 rounded-lg text-xs font-bold {% if days == 90 %}bg-emerald-50 text-emerald-800{% else %}text-slate-500{% endif %}">90 days</a>
             </div>
             <a href="{% url 'system_report_csv' %}?days={{ days }}" class="px-4 py-2.5 rounded-xl bg-[#064e3b] text-white text-sm font-extrabold hover:bg-emerald-900">Export system CSV</a>
+<a href="{% url 'system_report_pdf' %}?days={{ days }}" class="px-3 py-2 rounded-lg bg-[#064e3b] text-white text-xs font-bold">Full-system PDF</a>
         </div>
     </header>
 

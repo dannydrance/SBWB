@@ -24,7 +24,7 @@
                     <p class="text-sm text-gray-500 font-medium">{{ bin.location_name }}</p>
                     <div class="flex flex-wrap gap-2 pt-2">
                         <a href="#analytics" class="inline-flex items-center px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">View analytics</a>
-                        <a href="{% url 'device_report_csv' bin.id %}?days={{ days }}" class="inline-flex items-center px-3 py-2 rounded-lg bg-[#064e3b] text-white text-xs font-bold">Export device report</a>
+                        <a href="{% url 'device_report_pdf' bin.id %}?days={{ days }}" class="inline-flex items-center px-3 py-2 rounded-lg bg-[#064e3b] text-white text-xs font-bold">PDF report</a>
                     </div>
                 </div>
 
@@ -94,7 +94,8 @@
                         <a href="?days=30#analytics" class="px-2.5 py-1.5 rounded text-xs font-bold {% if days == 30 %}bg-emerald-50 text-emerald-800{% else %}text-gray-500{% endif %}">30d</a>
                         <a href="?days=90#analytics" class="px-2.5 py-1.5 rounded text-xs font-bold {% if days == 90 %}bg-emerald-50 text-emerald-800{% else %}text-gray-500{% endif %}">90d</a>
                     </div>
-                    <a href="{% url 'device_report_csv' bin.id %}?days={{ days }}" class="px-3 py-2 rounded-lg bg-[#064e3b] text-white text-xs font-bold">Download CSV</a>
+                    <a href="{% url 'device_report_csv' bin.id %}?days={{ days }}" class="px-3 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 text-xs font-bold">CSV</a>
+                    <a href="{% url 'device_report_pdf' bin.id %}?days={{ days }}" class="px-3 py-2 rounded-lg bg-[#064e3b] text-white text-xs font-bold">PDF</a>
                 </div>
             </div>
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-0 xl:divide-x divide-gray-100">
@@ -113,111 +114,9 @@
             <div id="map" class="w-full flex-grow z-10 min-h-[300px]"></div>
         </div>
 
-        <!-- CONTROLS: connectivity summary + remote control actions -->
-        <div id="controls" class="scroll-mt-36 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Left: real connectivity/command data only — no invented fields -->
-            <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75">
-                    <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wider">System &amp; Connectivity</h2>
-                </div>
-                <div class="p-6 divide-y divide-gray-100 text-sm flex-grow">
-                    <div class="py-3 flex justify-between items-center">
-                        <span class="text-gray-500 font-medium">Device ID</span>
-                        <span class="font-mono text-gray-900 font-semibold">{{ bin.device_id }}</span>
-                    </div>
-                    <div class="py-3 flex justify-between items-center">
-                        <span class="text-gray-500 font-medium">Alert Status</span>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold font-mono border
-                            {% if bin.alert_status == 'NOMINAL' %}bg-emerald-50 text-emerald-800 border-emerald-200
-                            {% else %}bg-rose-50 text-rose-800 border-rose-200{% endif %}">
-                            {{ bin.alert_status }}
-                        </span>
-                    </div>
-                    <div class="py-3 flex justify-between items-center">
-                        <span class="text-gray-500 font-medium">Telemetry Endpoint</span>
-                        <span class="font-mono text-gray-600 text-xs">{{ telemetry_endpoint }}</span>
-                    </div>
-                    <div class="py-3 flex justify-between items-center">
-                        <span class="text-gray-500 font-medium">Last Command</span>
-                        <span class="font-mono text-gray-900 font-semibold">{{ bin.last_command|default:"—" }}</span>
-                    </div>
-                    <div class="py-3 flex justify-between items-center">
-                        <span class="text-gray-500 font-medium">Command Status</span>
-                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold font-mono border
-                            {% if bin.last_command_status == 'ACKED' %}bg-emerald-50 text-emerald-800 border-emerald-200
-                            {% elif bin.last_command_status == 'PENDING' %}bg-amber-50 text-amber-800 border-amber-200
-                            {% elif bin.last_command_status == 'TIMEOUT' %}bg-rose-50 text-rose-800 border-rose-200
-                            {% else %}bg-gray-50 text-gray-500 border-gray-200{% endif %}">
-                            {{ bin.last_command_status }}
-                        </span>
-                    </div>
-                    <div class="py-3 flex justify-between items-center">
-                        <span class="text-gray-500 font-medium">Command Timestamp</span>
-                        <span class="font-mono text-gray-600 text-xs">{% if bin.last_command_time %}{{ bin.last_command_time|date:"Y-m-d H:i:s" }}{% else %}—{% endif %}</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Right: Remote Control Action Grid, grouped by function -->
-            <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
-                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75">
-                    <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Remote Controls</h2>
-                </div>
-                <div class="p-6 space-y-5 flex-grow">
-
-                    <div>
-                        <span class="text-[11px] font-bold uppercase tracking-widest text-gray-400 block mb-2">Lid &amp; Interlock</span>
-                        <div class="grid grid-cols-2 gap-3">
-                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                    hx-post="{% url 'api_device_command' bin.id 'lock' %}" hx-target="#command-banner" hx-swap="innerHTML">
-                                Lock Lid
-                            </button>
-                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-gray-500 hover:bg-gray-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                    hx-post="{% url 'api_device_command' bin.id 'unlock' %}" hx-target="#command-banner" hx-swap="innerHTML">
-                                Unlock Lid
-                            </button>
-                        </div>
-                    </div>
-
-                    <div>
-                        <span class="text-[11px] font-bold uppercase tracking-widest text-gray-400 block mb-2">Disinfection Cycle</span>
-                        <div class="grid grid-cols-2 gap-3">
-                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                    hx-post="{% url 'api_device_command' bin.id 'start-uv' %}" hx-target="#command-banner" hx-swap="innerHTML">
-                                Start UV
-                            </button>
-                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-gray-500 hover:bg-gray-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                    hx-post="{% url 'api_device_command' bin.id 'stop-uv' %}" hx-target="#command-banner" hx-swap="innerHTML">
-                                Stop UV
-                            </button>
-                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                    hx-post="{% url 'api_device_command' bin.id 'start-heater' %}" hx-target="#command-banner" hx-swap="innerHTML">
-                                Enable Heater Auto
-                            </button>
-                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-gray-500 hover:bg-gray-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                    hx-post="{% url 'api_device_command' bin.id 'stop-heater' %}" hx-target="#command-banner" hx-swap="innerHTML">
-                                Force Heater Off
-                            </button>
-                        </div>
-                        <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">Heater runs as a thermostat once enabled — it switches itself on/off to hold the configured target temperature. "Force Off" overrides that until re-enabled.</p>
-                    </div>
-
-                    <div>
-                        <span class="text-[11px] font-bold uppercase tracking-widest text-gray-400 block mb-2">System</span>
-                        <div class="grid grid-cols-2 gap-3">
-                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-amber-500 hover:bg-amber-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                    hx-post="{% url 'api_device_command' bin.id 'restart' %}" hx-target="#command-banner" hx-swap="innerHTML">
-                                Restart MCU
-                            </button>
-                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[#005f53] bg-emerald-50 hover:bg-emerald-100 border border-[#005f53] active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                    hx-post="{% url 'api_device_command' bin.id 'sync-clock' %}" hx-target="#command-banner" hx-swap="innerHTML">
-                                Sync Clock
-                            </button>
-                        </div>
-                    </div>
-
-                </div>
-            </div>
+        <!-- CONTROLS: independently refreshed so connectivity and hardware state remain live -->
+        <div id="controls" class="scroll-mt-36" hx-get="{% url 'device_controls_fragment' bin.id %}" hx-trigger="every 2s" hx-swap="innerHTML">
+            {% include 'home/_device_controls.html' %}
         </div>
 
         <!-- DIAGNOSTICS: real alert-status detail, nothing invented -->
