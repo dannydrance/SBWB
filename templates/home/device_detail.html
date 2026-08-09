@@ -1,4 +1,6 @@
 {% extends 'home/base.html' %}
+{% block title %}{{ bin.device_id }} · SBWB{% endblock %}
+{% block head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>{% endblock %}
 {% block content %}
 <!-- Stylesheet Injection for Leaflet Map Engine -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -7,209 +9,316 @@
 <!-- Added CSRF Token Header for all internal HTMX POST requests -->
 <div class="flex-grow flex flex-col bg-[#f4f6f8]" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
     <div class="flex-grow p-6 space-y-6 max-w-[1600px] w-full mx-auto" id="dashboard-container">
-        
-        <!-- ROW 1: TOP HEADER LAYER -->
-        <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div class="space-y-1">
-                <a href="{% url 'dashboard_home' %}" class="inline-flex items-center space-x-1.5 text-xs font-bold text-[#005f53] hover:text-[#00463d] uppercase tracking-wider transition">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-                    </svg>
-                    <span>Back to Dashboard</span>
-                </a>
-                <h1 class="text-3xl font-black text-gray-900 tracking-tight font-mono">{{ bin.device_id|default:"SBWB-001" }}</h1>
-                <div class="text-sm text-gray-500 font-medium flex items-center space-x-2">
-                    <span>{{ bin.location_name|default:"Kigali Convention Centre" }}</span>
+
+        <!-- HEADER: identity, status, and the fill-level capacity gauge as the page's one signature element -->
+        <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div class="p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div class="space-y-1.5">
+                    <a href="{% url 'dashboard_home' %}" class="inline-flex items-center space-x-1.5 text-xs font-bold text-[#005f53] hover:text-[#00463d] uppercase tracking-wider transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                        </svg>
+                        <span>Back to Dashboard</span>
+                    </a>
+                    <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight font-mono">{{ bin.device_id }}</h1>
+                    <p class="text-sm text-gray-500 font-medium">{{ bin.location_name }}</p>
+                    <div class="flex flex-wrap gap-2 pt-2">
+                        <a href="#analytics" class="inline-flex items-center px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">View analytics</a>
+                        <a href="{% url 'device_report_csv' bin.id %}?days={{ days }}" class="inline-flex items-center px-3 py-2 rounded-lg bg-[#064e3b] text-white text-xs font-bold">Export device report</a>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="md:text-right flex md:flex-col justify-between items-center md:items-end gap-2 border-t md:border-t-0 pt-4 md:pt-0 border-gray-100">
-                <div>
+
+                <div class="flex md:flex-col justify-between items-center md:items-end gap-2 border-t md:border-t-0 pt-4 md:pt-0 border-gray-100">
                     {% if bin.is_online %}
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-wider">
-                            <span class="w-2.5 h-2.5 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>
-                            Online
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-wider">
+                            <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>Online
                         </span>
                     {% else %}
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-black bg-rose-50 text-rose-700 border border-rose-200 uppercase tracking-wider">
-                            <span class="w-2.5 h-2.5 bg-rose-500 rounded-full mr-2"></span>
-                            Offline
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 uppercase tracking-wider">
+                            <span class="w-2 h-2 bg-rose-500 rounded-full mr-2"></span>Offline
                         </span>
                     {% endif %}
+                    <span class="text-xs text-gray-400 font-semibold uppercase tracking-wider">
+                        Last seen <strong class="text-gray-600 font-mono normal-case">{{ bin.duration_status }}</strong>
+                    </span>
                 </div>
-                <span class="text-xs text-gray-400 font-semibold uppercase tracking-wider block mt-1">
-                    Last seen: <strong class="text-gray-600 font-mono">{{ bin.duration_status|default:"Just now" }}</strong>
-                </span>
+            </div>
+
+            <!-- Signature element: fill-level capacity strip. This is the number the whole -->
+            <!-- device exists to report, so it lives in the header rather than buried in a KPI grid. -->
+            <div class="px-6 pb-5 pt-1">
+                <div class="flex items-baseline justify-between mb-1.5">
+                    <span class="text-[11px] font-bold uppercase tracking-widest text-gray-400">Bin Capacity</span>
+                    <span class="text-sm font-mono font-bold {% if bin.fill_level > 85 %}text-rose-600{% elif bin.fill_level > 50 %}text-amber-600{% else %}text-[#005f53]{% endif %}">{{ bin.fill_level|default:"0" }}%</span>
+                </div>
+                <div class="relative w-full h-2.5 rounded-full bg-gray-100 overflow-hidden">
+                    <div class="absolute inset-y-0 left-0 bg-gradient-to-r from-[#005f53] via-amber-400 to-rose-500 opacity-15"></div>
+                    <div class="absolute inset-y-0 left-0 rounded-full transition-all duration-700 {% if bin.fill_level > 85 %}bg-rose-500{% elif bin.fill_level > 50 %}bg-amber-500{% else %}bg-[#005f53]{% endif %}" style="width: {{ bin.fill_level|default:0 }}%"></div>
+                    <div class="absolute inset-y-0 left-[50%] w-px bg-white/70"></div>
+                    <div class="absolute inset-y-0 left-[85%] w-px bg-white/70"></div>
+                </div>
             </div>
         </div>
 
-        <!-- ROW 2-4: KPI CARDS, STATUS FLAGS & SENSOR TABLE — polls itself every 3s -->
-        <div id="device-live"
-             class="space-y-6"
-             hx-get="{% url 'device_live_fragment' bin.id %}"
-             hx-trigger="every 3s"
-             hx-swap="innerHTML">
-            {% include 'home/_device_live.html' %}
+        <!-- SECTION NAV -->
+        <div class="sticky top-20 z-30 flex gap-1.5 bg-white/90 backdrop-blur border border-gray-200 rounded-xl shadow-sm px-2 py-1.5 overflow-x-auto">
+            <a href="#telemetry" class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-[#005f53] hover:bg-emerald-50 transition whitespace-nowrap">Telemetry</a>
+            <a href="#analytics" class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-[#005f53] hover:bg-emerald-50 transition whitespace-nowrap">Analytics</a>
+            <a href="#location" class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-[#005f53] hover:bg-emerald-50 transition whitespace-nowrap">Location</a>
+            <a href="#controls" class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-[#005f53] hover:bg-emerald-50 transition whitespace-nowrap">Controls</a>
+            <a href="#diagnostics" class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider text-gray-500 hover:text-[#005f53] hover:bg-emerald-50 transition whitespace-nowrap">Diagnostics</a>
         </div>
 
-        <!-- ROW 3b: MAP (kept outside the polling region so Leaflet never re-initializes) -->
-        <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col min-h-[350px]">
-            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75">
-                <h2 class="text-sm font-black text-gray-900 uppercase tracking-wider">Device Location Mapping</h2>
+        <!-- TELEMETRY: KPI cards, status flags, sensor table, command banner — polls itself every 3s -->
+        <div id="telemetry" class="scroll-mt-36">
+            <div id="device-live"
+                 class="space-y-6"
+                 hx-get="{% url 'device_live_fragment' bin.id %}"
+                 hx-trigger="every 3s"
+                 hx-swap="innerHTML">
+                {% include 'home/_device_live.html' %}
+            </div>
+        </div>
+
+        <!-- DEVICE ANALYTICS & REPORTING -->
+        <section id="analytics" class="scroll-mt-36 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div>
+                    <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Device Analytics & Reporting</h2>
+                    <p class="text-xs text-gray-500 mt-1">Historical telemetry for {{ bin.device_id }} · {{ sample_count }} samples in selected range.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <div class="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+                        <a href="?days=1#analytics" class="px-2.5 py-1.5 rounded text-xs font-bold {% if days == 1 %}bg-emerald-50 text-emerald-800{% else %}text-gray-500{% endif %}">24h</a>
+                        <a href="?days=7#analytics" class="px-2.5 py-1.5 rounded text-xs font-bold {% if days == 7 %}bg-emerald-50 text-emerald-800{% else %}text-gray-500{% endif %}">7d</a>
+                        <a href="?days=30#analytics" class="px-2.5 py-1.5 rounded text-xs font-bold {% if days == 30 %}bg-emerald-50 text-emerald-800{% else %}text-gray-500{% endif %}">30d</a>
+                        <a href="?days=90#analytics" class="px-2.5 py-1.5 rounded text-xs font-bold {% if days == 90 %}bg-emerald-50 text-emerald-800{% else %}text-gray-500{% endif %}">90d</a>
+                    </div>
+                    <a href="{% url 'device_report_csv' bin.id %}?days={{ days }}" class="px-3 py-2 rounded-lg bg-[#064e3b] text-white text-xs font-bold">Download CSV</a>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-0 xl:divide-x divide-gray-100">
+                <div class="p-5 h-[330px]"><div class="text-xs font-bold text-gray-600 mb-3">Fill level & gas concentration</div><canvas id="deviceOperationalChart"></canvas></div>
+                <div class="p-5 h-[330px] border-t xl:border-t-0 border-gray-100"><div class="text-xs font-bold text-gray-600 mb-3">Temperature & humidity</div><canvas id="deviceEnvironmentChart"></canvas></div>
+            </div>
+            {% if sample_count == 0 %}<div class="px-6 pb-5 text-xs text-amber-700">Historical charts will populate after new telemetry is received. Existing latest values remain available above.</div>{% endif %}
+        </section>
+
+        <!-- LOCATION -->
+        <div id="location" class="scroll-mt-36 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col min-h-[350px]">
+            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75 flex items-center justify-between">
+                <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Device Location</h2>
+                <span class="text-[11px] text-gray-400 font-medium">Default placement — per-device GPS not yet wired up</span>
             </div>
             <div id="map" class="w-full flex-grow z-10 min-h-[300px]"></div>
         </div>
 
-        <!-- ROW 5: CONFIGURATION & REMOTE CONTROLS -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <!-- Left: Config Block -->
+        <!-- CONTROLS: connectivity summary + remote control actions -->
+        <div id="controls" class="scroll-mt-36 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Left: real connectivity/command data only — no invented fields -->
             <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
                 <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75">
-                    <h2 class="text-sm font-black text-gray-900 uppercase tracking-wider">Device Configuration Properties</h2>
+                    <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wider">System &amp; Connectivity</h2>
                 </div>
-                <div class="p-6 divide-y divide-gray-100 text-sm flex-grow flex flex-col justify-center">
-                    <div class="py-3 flex justify-between">
-                        <span class="text-gray-500 font-medium">WiFi SSID</span>
-                        <span class="font-mono text-gray-900 font-semibold">{{ bin.wifi_ssid|default:"SBWB_AP" }}</span>
+                <div class="p-6 divide-y divide-gray-100 text-sm flex-grow">
+                    <div class="py-3 flex justify-between items-center">
+                        <span class="text-gray-500 font-medium">Device ID</span>
+                        <span class="font-mono text-gray-900 font-semibold">{{ bin.device_id }}</span>
                     </div>
-                    <div class="py-3 flex justify-between">
-                        <span class="text-gray-500 font-medium">IP Address</span>
-                        <span class="font-mono text-gray-600">{{ bin.ip_address|default:"192.168.1.52" }}</span>
+                    <div class="py-3 flex justify-between items-center">
+                        <span class="text-gray-500 font-medium">Alert Status</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold font-mono border
+                            {% if bin.alert_status == 'NOMINAL' %}bg-emerald-50 text-emerald-800 border-emerald-200
+                            {% else %}bg-rose-50 text-rose-800 border-rose-200{% endif %}">
+                            {{ bin.alert_status }}
+                        </span>
                     </div>
-                    <div class="py-3 flex justify-between">
-                        <span class="text-gray-500 font-medium">Protocol</span>
-                        <span class="font-mono text-gray-600">HTTPS / WSS</span>
+                    <div class="py-3 flex justify-between items-center">
+                        <span class="text-gray-500 font-medium">Telemetry Endpoint</span>
+                        <span class="font-mono text-gray-600 text-xs">{{ telemetry_endpoint }}</span>
                     </div>
-                    <div class="py-3 flex justify-between">
-                        <span class="text-gray-500 font-medium">HTTPS Host</span>
-                        <span class="font-mono text-gray-600">{{ request.get_host }}</span>
+                    <div class="py-3 flex justify-between items-center">
+                        <span class="text-gray-500 font-medium">Last Command</span>
+                        <span class="font-mono text-gray-900 font-semibold">{{ bin.last_command|default:"—" }}</span>
                     </div>
-                    <div class="py-3 flex justify-between">
-                        <span class="text-gray-500 font-medium">HTTPS Endpoint</span>
-                        <span class="font-mono text-gray-600">/api/device/{{ bin.id|default:1 }}</span>
+                    <div class="py-3 flex justify-between items-center">
+                        <span class="text-gray-500 font-medium">Command Status</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold font-mono border
+                            {% if bin.last_command_status == 'ACKED' %}bg-emerald-50 text-emerald-800 border-emerald-200
+                            {% elif bin.last_command_status == 'PENDING' %}bg-amber-50 text-amber-800 border-amber-200
+                            {% elif bin.last_command_status == 'TIMEOUT' %}bg-rose-50 text-rose-800 border-rose-200
+                            {% else %}bg-gray-50 text-gray-500 border-gray-200{% endif %}">
+                            {{ bin.last_command_status }}
+                        </span>
+                    </div>
+                    <div class="py-3 flex justify-between items-center">
+                        <span class="text-gray-500 font-medium">Command Timestamp</span>
+                        <span class="font-mono text-gray-600 text-xs">{% if bin.last_command_time %}{{ bin.last_command_time|date:"Y-m-d H:i:s" }}{% else %}—{% endif %}</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Right: Remote Control Action Grid -->
-            <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6 flex flex-col justify-between">
-                <div>
-                    <h2 class="text-sm font-black text-gray-900 uppercase tracking-wider mb-4">Remote Manual Control Interlock</h2>
-                    
-                    <div class="grid grid-cols-2 gap-3.5">
-                        <!-- Lock / Unlock Lid -->
-                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                hx-post="/api/device/{{ bin.id|default:1 }}/lock/" hx-target="#command-banner" hx-swap="innerHTML">
-                            Lock Lid
-                        </button>
-                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-gray-500 hover:bg-gray-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                hx-post="/api/device/{{ bin.id|default:1 }}/unlock/" hx-target="#command-banner" hx-swap="innerHTML">
-                            Unlock Lid
-                        </button>
+            <!-- Right: Remote Control Action Grid, grouped by function -->
+            <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex flex-col">
+                <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75">
+                    <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Remote Controls</h2>
+                </div>
+                <div class="p-6 space-y-5 flex-grow">
 
-                        <!-- UV Actions -->
-                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                hx-post="/api/device/{{ bin.id|default:1 }}/start-uv/" hx-target="#command-banner" hx-swap="innerHTML">
-                            Start UV
-                        </button>
-                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-gray-500 hover:bg-gray-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                hx-post="/api/device/{{ bin.id|default:1 }}/stop-uv/" hx-target="#command-banner" hx-swap="innerHTML">
-                            Stop UV
-                        </button>
-
-                        <!-- Heater Actions -->
-                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                hx-post="/api/device/{{ bin.id|default:1 }}/start-heater/" hx-target="#command-banner" hx-swap="innerHTML">
-                            Start Heater
-                        </button>
-                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-gray-500 hover:bg-gray-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                hx-post="/api/device/{{ bin.id|default:1 }}/stop-heater/" hx-target="#command-banner" hx-swap="innerHTML">
-                            Stop Heater
-                        </button>
-
-                        <!-- Special Controls -->
-                        <button class="col-span-2 px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-amber-500 hover:bg-amber-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                hx-post="/api/device/{{ bin.id|default:1 }}/restart/" hx-target="#command-banner" hx-swap="innerHTML">
-                            Restart MCU
-                        </button>
-                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-[#005f53] bg-emerald-50 hover:bg-emerald-100 border border-[#005f53] active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                hx-post="/api/device/{{ bin.id|default:1 }}/sync-clock/" hx-target="#command-banner" hx-swap="innerHTML">
-                            Sync Clock
-                        </button>
-                        <button class="px-4 py-2.5 text-xs font-black uppercase tracking-wider text-white bg-[#005f53] hover:bg-[#004d43] active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
-                                hx-get="{% url 'dashboard_home' %}" hx-target="body" hx-push-url="true">
-                            Refresh Data
-                        </button>
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-widest text-gray-400 block mb-2">Lid &amp; Interlock</span>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                    hx-post="{% url 'api_device_command' bin.id 'lock' %}" hx-target="#command-banner" hx-swap="innerHTML">
+                                Lock Lid
+                            </button>
+                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-gray-500 hover:bg-gray-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                    hx-post="{% url 'api_device_command' bin.id 'unlock' %}" hx-target="#command-banner" hx-swap="innerHTML">
+                                Unlock Lid
+                            </button>
+                        </div>
                     </div>
+
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-widest text-gray-400 block mb-2">Disinfection Cycle</span>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                    hx-post="{% url 'api_device_command' bin.id 'start-uv' %}" hx-target="#command-banner" hx-swap="innerHTML">
+                                Start UV
+                            </button>
+                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-gray-500 hover:bg-gray-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                    hx-post="{% url 'api_device_command' bin.id 'stop-uv' %}" hx-target="#command-banner" hx-swap="innerHTML">
+                                Stop UV
+                            </button>
+                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-emerald-600 hover:bg-emerald-700 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                    hx-post="{% url 'api_device_command' bin.id 'start-heater' %}" hx-target="#command-banner" hx-swap="innerHTML">
+                                Enable Heater Auto
+                            </button>
+                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-gray-500 hover:bg-gray-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                    hx-post="{% url 'api_device_command' bin.id 'stop-heater' %}" hx-target="#command-banner" hx-swap="innerHTML">
+                                Force Heater Off
+                            </button>
+                        </div>
+                        <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">Heater runs as a thermostat once enabled — it switches itself on/off to hold the configured target temperature. "Force Off" overrides that until re-enabled.</p>
+                    </div>
+
+                    <div>
+                        <span class="text-[11px] font-bold uppercase tracking-widest text-gray-400 block mb-2">System</span>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-white bg-amber-500 hover:bg-amber-600 active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                    hx-post="{% url 'api_device_command' bin.id 'restart' %}" hx-target="#command-banner" hx-swap="innerHTML">
+                                Restart MCU
+                            </button>
+                            <button class="px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-[#005f53] bg-emerald-50 hover:bg-emerald-100 border border-[#005f53] active:scale-95 transition-all duration-150 rounded-lg shadow-sm"
+                                    hx-post="{% url 'api_device_command' bin.id 'sync-clock' %}" hx-target="#command-banner" hx-swap="innerHTML">
+                                Sync Clock
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
 
-        <!-- ROW 6: FAULT LOG CARD -->
-        <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75 flex justify-between items-center">
-                <h2 class="text-sm font-black text-gray-900 uppercase tracking-wider">Fault Log</h2>
-                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-mono font-bold {% if bin.has_faults %}bg-rose-50 text-rose-800 border-rose-200{% else %}bg-emerald-50 text-emerald-800 border-emerald-200{% endif %} border">
-                    STATUS: {% if bin.has_faults %}CRITICAL{% else %}NOMINAL{% endif %}
-                </span>
-            </div>
-            <div class="p-6 text-sm text-gray-500 font-mono italic">
-                {% if bin.active_faults %}
-                    {% for fault in bin.active_faults %}
-                        <p class="text-rose-600 mb-2">[{{ fault.timestamp }}] {{ fault.error_code }} - {{ fault.message }}</p>
-                    {% endfor %}
-                {% else %}
-                    No active hardware faults registered on system registers.
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- ROW 7: BOTTOM TIMELINE -->
-        <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+        <!-- DIAGNOSTICS: real alert-status detail, nothing invented -->
+        <div id="diagnostics" class="scroll-mt-36 bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 bg-gray-50/75">
-                <h2 class="text-sm font-black text-gray-900 uppercase tracking-wider">Operational Sequence Log (Scrolling Activity Feed)</h2>
+                <h2 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Diagnostics</h2>
             </div>
-            <div class="p-6 max-h-72 overflow-y-auto space-y-6">
-                {% for log in bin.logs %}
-                <div class="flex items-start space-x-4">
-                    <div class="text-sm font-mono font-bold text-[#005f53] bg-emerald-50 px-2 py-1 rounded select-none shrink-0">{{ log.timestamp|date:"H:i" }}</div>
-                    <div class="flex-grow pt-1 {% if not forloop.last %}border-b border-gray-100 pb-3{% endif %}">
-                        <p class="text-sm font-bold text-gray-950">{{ log.title }}</p>
-                        <p class="text-xs text-gray-400 mt-0.5">{{ log.message }}</p>
+            <div class="p-6">
+                {% if bin.alert_status == 'NOMINAL' %}
+                <div class="flex items-center gap-3">
+                    <span class="shrink-0 w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>
+                    </span>
+                    <div>
+                        <p class="text-sm font-bold text-gray-900">No active alerts</p>
+                        <p class="text-xs text-gray-500">All monitored conditions are within normal range.</p>
                     </div>
                 </div>
-                {% empty %}
-                <div class="flex items-start space-x-4">
-                    <div class="text-sm font-mono font-bold text-[#005f53] bg-emerald-50 px-2 py-1 rounded select-none shrink-0">Now</div>
-                    <div class="flex-grow pt-1">
-                        <p class="text-sm font-bold text-gray-950">System Initialized</p>
-                        <p class="text-xs text-gray-400 mt-0.5">Awaiting telemetry from hardware nodes.</p>
+                {% elif bin.alert_status == 'BIN_FULL' %}
+                <div class="flex items-center gap-3">
+                    <span class="shrink-0 w-9 h-9 rounded-full bg-rose-50 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86l-8.18 14.14A1.5 1.5 0 003.36 20h17.28a1.5 1.5 0 001.25-1.98L13.71 3.86a1.5 1.5 0 00-2.72 0z"></path></svg>
+                    </span>
+                    <div>
+                        <p class="text-sm font-bold text-rose-700">Critical: bin full</p>
+                        <p class="text-xs text-gray-500">Ultrasonic fill reading has crossed the capacity threshold — schedule collection.</p>
                     </div>
                 </div>
-                {% endfor %}
+                {% elif bin.alert_status == 'METAL' %}
+                <div class="flex items-center gap-3">
+                    <span class="shrink-0 w-9 h-9 rounded-full bg-rose-50 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86l-8.18 14.14A1.5 1.5 0 003.36 20h17.28a1.5 1.5 0 001.25-1.98L13.71 3.86a1.5 1.5 0 00-2.72 0z"></path></svg>
+                    </span>
+                    <div>
+                        <p class="text-sm font-bold text-rose-700">Sharps alert: metal detected</p>
+                        <p class="text-xs text-gray-500">The inductive sensor flagged metal in the bin — inspect before next disinfection cycle.</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if bin.last_command %}
+                <div class="mt-5 pt-5 border-t border-gray-100 flex items-center justify-between text-xs">
+                    <span class="text-gray-400 font-semibold uppercase tracking-wider">Most recent command</span>
+                    <span class="font-mono text-gray-700">
+                        {{ bin.last_command }} — {{ bin.last_command_status }}{% if bin.last_command_time %} · {{ bin.last_command_time|date:"H:i:s" }}{% endif %}
+                    </span>
+                </div>
+                {% endif %}
             </div>
         </div>
 
     </div>
 </div>
 
+<script>
+    const deviceHistory = {{ history_json|safe }};
+    const chartBase = {responsive:true, maintainAspectRatio:false, animation:{duration:300}, plugins:{legend:{labels:{usePointStyle:true,boxWidth:8}}}, scales:{x:{grid:{display:false},ticks:{maxTicksLimit:8}},y:{beginAtZero:true,grid:{color:'#eef2f7'}}}};
+    const op = document.getElementById('deviceOperationalChart');
+    let operationalChart = null;
+    if (op) operationalChart = new Chart(op,{type:'line',data:{labels:deviceHistory.map(x=>x.label),datasets:[{label:'Fill %',data:deviceHistory.map(x=>x.fill),borderColor:'#059669',tension:.3,pointRadius:1},{label:'Gas ppm',data:deviceHistory.map(x=>x.gas),borderColor:'#d97706',tension:.3,pointRadius:1}]},options:chartBase});
+    const env = document.getElementById('deviceEnvironmentChart');
+    let environmentChart = null;
+    if (env) environmentChart = new Chart(env,{type:'line',data:{labels:deviceHistory.map(x=>x.label),datasets:[{label:'Ambient °C',data:deviceHistory.map(x=>x.temperature),borderColor:'#2563eb',tension:.3,pointRadius:1},{label:'Element °C',data:deviceHistory.map(x=>x.elementTemp),borderColor:'#dc2626',tension:.3,pointRadius:1},{label:'Humidity %',data:deviceHistory.map(x=>x.humidity),borderColor:'#7c3aed',tension:.3,pointRadius:1}]},options:chartBase});
+
+    async function refreshDeviceAnalytics(){
+        try {
+            const r = await fetch("{% url 'device_analytics_api' bin.id %}?days={{ days }}", {headers:{'X-Requested-With':'XMLHttpRequest'}});
+            if (!r.ok) return;
+            const data = await r.json();
+            const h = data.history;
+            if (operationalChart) {
+                operationalChart.data.labels = h.map(x=>x.label);
+                operationalChart.data.datasets[0].data = h.map(x=>x.fill);
+                operationalChart.data.datasets[1].data = h.map(x=>x.gas);
+                operationalChart.update('none');
+            }
+            if (environmentChart) {
+                environmentChart.data.labels = h.map(x=>x.label);
+                environmentChart.data.datasets[0].data = h.map(x=>x.temperature);
+                environmentChart.data.datasets[1].data = h.map(x=>x.elementTemp);
+                environmentChart.data.datasets[2].data = h.map(x=>x.humidity);
+                environmentChart.update('none');
+            }
+        } catch (_) {}
+    }
+    setInterval(refreshDeviceAnalytics, 15000);
+</script>
+
 <!-- Map Script Generation & Initialization -->
 <script>
-    // Coordinate defaults dynamically injected from Django context
     const deviceLat = {{ bin.latitude|default:"-1.9542" }};
     const deviceLng = {{ bin.longitude|default:"30.0924" }};
 
-    // Initialize Map
     var map = L.map('map').setView([deviceLat, deviceLng], 15);
 
-    // Modern light-mode canvas tiles
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         subdomains: 'abcd',
         maxZoom: 20
     }).addTo(map);
 
-    // Place Device Circle Marker
     L.circleMarker([deviceLat, deviceLng], {
         radius: 11,
         fillColor: "#005f53",
@@ -218,8 +327,8 @@
         fillOpacity: 1
     }).addTo(map).bindPopup(`
         <div style="font-family: sans-serif; font-size:12px; line-height: 1.4;">
-            <b style="font-size:13px; color:#005f53;">${"{{ bin.device_id|default:'SBWB-001' }}"}</b><br>
-            Location: ${"{{ bin.location_name|default:'Kigali Convention Centre' }}"}
+            <b style="font-size:13px; color:#005f53;">${"{{ bin.device_id }}"}</b><br>
+            Location: ${"{{ bin.location_name }}"}
         </div>
     `).openPopup();
 </script>

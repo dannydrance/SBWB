@@ -1,163 +1,58 @@
 {% extends 'home/base.html' %}
+{% block title %}Operations Dashboard · SBWB{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+{% endblock %}
 {% block content %}
-<!-- Stylesheet Injection for Leaflet Map Engine -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-
-<div class="flex-grow flex flex-col">
-    <!-- Main Workspace Container -->
-    <div class="flex-grow p-6 space-y-6 max-w-[1600px] w-full mx-auto">
-        
-        <!-- Top Statistics/Metrics Cards Grid — polls itself every 3s -->
-        <div id="dashboard-stats"
-             class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
-             hx-get="{% url 'dashboard_stats_fragment' %}"
-             hx-trigger="every 3s"
-             hx-swap="innerHTML">
-            {% include 'home/_dashboard_stats.html' %}
+<div class="max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-6 lg:py-8 space-y-6">
+    <header class="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+        <div>
+            <div class="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[.16em] text-emerald-700"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Operations overview</div>
+            <h1 class="text-3xl font-extrabold text-slate-950 mt-2 tracking-tight">Smart waste system dashboard</h1>
+            <p class="text-sm text-slate-500 mt-1">Live fleet health, capacity risk, air quality and device access in one view.</p>
         </div>
-
-        <!-- Dynamic Split Panel Row -->
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
-            
-            <!-- Left Half (Table and Logs) -->
-            <div id="dashboard-table-live"
-                 class="lg:col-span-7 space-y-6 flex flex-col justify-between"
-                 hx-get="{% url 'dashboard_table_fragment' %}"
-                 hx-trigger="every 3s"
-                 hx-swap="innerHTML">
-                {% include 'home/_dashboard_table.html' %}
-            </div>
-
-            <!-- Right Half (Live Interactive Leaflet Map) -->
-            <div class="lg:col-span-5 flex flex-col h-full min-h-[500px]">
-                <div class="bg-white border border-gray-200 rounded-xl shadow-sm flex-grow overflow-hidden flex flex-col h-full">
-                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex justify-between items-center select-none">
-                        <div>
-                            <h2 class="text-base font-bold text-gray-900 tracking-tight">Geospatial Ingestion Map</h2>
-                            <p class="text-xs text-gray-500">Geographic tracking profile of microcontrollers.</p>
-                        </div>
-                    </div>
-                    <!-- Leaflet Container (Z-index set to 10 to clear Tailwind anomalies) -->
-                    <div id="map" class="w-full flex-grow min-h-[450px] lg:h-full z-10"></div>
-                </div>
-            </div>
-
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'system_status' %}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-bold text-slate-700 hover:border-emerald-300 hover:text-emerald-800 transition">Open analytics</a>
+            <a href="{% url 'system_report_csv' %}?days=30" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#064e3b] text-white text-sm font-bold hover:bg-emerald-900 transition">Download 30-day system report</a>
         </div>
+    </header>
 
+    <div id="dashboard-stats" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" hx-get="{% url 'dashboard_stats_fragment' %}" hx-trigger="every 3s" hx-swap="innerHTML">
+        {% include 'home/_dashboard_stats.html' %}
     </div>
+
+    <section class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+        <div class="xl:col-span-8 card overflow-hidden">
+            <div class="px-5 sm:px-6 py-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div><h2 class="font-extrabold text-slate-950">Current device capacity</h2><p class="text-xs text-slate-500 mt-1">Latest fill-level measurement from each registered device.</p></div>
+                <span class="text-xs font-bold text-slate-500 bg-slate-100 rounded-lg px-3 py-1.5">Average fill {{ avg_fill }}%</span>
+            </div>
+            <div class="p-5 sm:p-6 h-[310px]"><canvas id="fillSnapshotChart"></canvas></div>
+        </div>
+        <div class="xl:col-span-4 card p-5 sm:p-6">
+            <div class="flex items-center justify-between"><div><h2 class="font-extrabold text-slate-950">Operational summary</h2><p class="text-xs text-slate-500 mt-1">Latest system snapshot.</p></div><span class="htmx-indicator text-xs text-emerald-700 font-bold">Updating…</span></div>
+            <div class="mt-6 space-y-4">
+                <div class="flex items-center justify-between p-4 rounded-xl bg-slate-50"><span class="text-sm font-semibold text-slate-600">Devices online</span><span class="font-mono font-bold text-emerald-700">{{ online }}/{{ total }}</span></div>
+                <div class="flex items-center justify-between p-4 rounded-xl bg-slate-50"><span class="text-sm font-semibold text-slate-600">Average gas reading</span><span class="font-mono font-bold text-slate-900">{{ avg_gas }} ppm</span></div>
+                <div class="flex items-center justify-between p-4 rounded-xl bg-slate-50"><span class="text-sm font-semibold text-slate-600">Active exceptions</span><span class="font-mono font-bold {% if critical_bins %}text-rose-600{% else %}text-emerald-700{% endif %}">{{ critical_bins|length }}</span></div>
+            </div>
+            <a href="{% url 'system_status' %}" class="mt-5 w-full inline-flex justify-center px-4 py-3 rounded-xl border border-slate-200 text-sm font-extrabold text-slate-700 hover:bg-slate-50">Review trends & reports</a>
+        </div>
+    </section>
+
+    <section id="dashboard-table-live" class="space-y-6" hx-get="{% url 'dashboard_table_fragment' %}" hx-trigger="every 3s" hx-swap="innerHTML">
+        {% include 'home/_dashboard_table.html' %}
+    </section>
 </div>
-
-<!-- Map Script Generation & Initialization -->
 <script>
-    // Default location (Kigali) if geolocation is unavailable   
-    const defaultLat = -1.9441;
-    const defaultLng = 30.0619;
-
-    // Initialize the map
-    var map = L.map('map').setView([defaultLat, defaultLng], 12);
-
-    // Light-mode modern canvas tile layout
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        subdomains: 'abcd',
-        maxZoom: 20
-    }).addTo(map);
-
-    function loadMarkers(centerLat, centerLng) {
-        // Create locations around the detected center
-        const locations = [
-            [centerLat, centerLng],
-            [centerLat + 0.005, centerLng + 0.005],
-            [centerLat - 0.005, centerLng - 0.004],
-            [centerLat + 0.004, centerLng - 0.006],
-            [centerLat - 0.004, centerLng + 0.006]
-        ];
-
-        var index = 0;
-
-        {% for bin in bins %}
-            var lat = locations[index % locations.length][0];
-            var lng = locations[index % locations.length][1];
-
-            var fill = Number("{{ bin.fill_level }}");
-            var markerColor = "green";
-
-            if (fill > 85) {
-                markerColor = "red";
-            } else if (fill > 50) {
-                markerColor = "orange";
-            }
-
-            var circleMarker = L.circleMarker([lat, lng], {
-                radius: 10,
-                fillColor: markerColor,
-                color: "#fff",
-                weight: 2,
-                fillOpacity: 0.95
-            }).addTo(map);
-
-            circleMarker.bindPopup(`
-                <div style="font-family: sans-serif; font-size:13px; line-height: 1.4;">
-                <a href="{% url 'device_detail' bin.id %}" class="block p-4 hover:bg-rose-50/30 transition duration-150">
-                    <h4 style="margin:0 0 5px 0; font-weight:800; color:#005f53; font-size:14px;">
-                        Sensor {{ bin.device_id }}
-                    </h4>
-                    <strong>Location:</strong> {{ bin.location_name }}<br>
-                    <strong>Fullness:</strong> {{ bin.fill_level }}%<br>
-                    <strong>Gas (Air Quality):</strong> {{ bin.gas_value }} ppm<br>
-                    <strong>Alert:</strong> {{ bin.alert_status }}<br>
-                    <strong>Status:</strong>
-                    {% if bin.is_online %}
-                        <span style="color:green;font-weight:bold;">Online</span>
-                    {% else %}
-                        <span style="color:red;font-weight:bold;">Offline</span>
-                    {% endif %}
-                </a>
-                </div>
-            `);
-
-            index++;
-        {% endfor %}
-    }
-
-    // Detect user's current location
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            function(position) {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
-                
-                {% for bin in bins %}
-                    // Center the map
-                    map.setView([lat, lng], 15);
-
-                    // Show user's location
-                    L.marker([lat, lng])
-                        .addTo(map)
-                        .bindPopup(`
-                        <div style="font-family: sans-serif; font-size:12px; line-height: 1.4;">
-                            <b style="font-size:13px; color:#005f53;">${"{{ bin.device_id|default:'SBWB-001' }}"}</b><br>
-                            Location: ${"{{ bin.location_name|default:'Kigali Convention Centre' }}"}
-                        </div>
-                        `)
-                        .openPopup();
-
-                    loadMarkers(lat, lng);
-                {% endfor %}
-            },
-            function(error) {
-                console.log("Location unavailable. Using default location.");
-                loadMarkers(defaultLat, defaultLng);
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-                maximumAge: 60000
-            }
-        );
-    } else {
-        loadMarkers(defaultLat, defaultLng);
-    }
+const snapshot = {{ snapshot_chart|safe }};
+const ctx = document.getElementById('fillSnapshotChart');
+if (ctx) {
+    new Chart(ctx, {
+        type: 'bar',
+        data: {labels: snapshot.map(x => x.device), datasets: [{label: 'Fill level (%)', data: snapshot.map(x => x.fill), backgroundColor: snapshot.map(x => x.fill > 85 ? '#e11d48' : x.fill > 50 ? '#d97706' : '#059669'), borderRadius: 7, maxBarThickness: 52}]},
+        options: {responsive:true, maintainAspectRatio:false, animation:{duration:350}, plugins:{legend:{display:false}, tooltip:{callbacks:{label:c => ` Fill level: ${c.raw}%`}}}, scales:{y:{beginAtZero:true,max:100,ticks:{callback:v=>v+'%'},grid:{color:'#eef2f7'}},x:{grid:{display:false}}}}
+    });
+}
 </script>
 {% endblock %}
