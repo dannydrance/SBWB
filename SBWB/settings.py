@@ -9,15 +9,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY
 # -------------------------
 
-SECRET_KEY = os.environ.get("SECRET_KEY")
+SECRET_KEY = os.environ.get(
+    "SECRET_KEY",
+    "django-insecure-local-development-key-change-this",
+)
 
-if not SECRET_KEY:
-    raise RuntimeError(
-        "SECRET_KEY environment variable is not configured."
-    )
-
-
-DEBUG = os.environ.get("DEBUG", "False").lower() == "true"
+DEBUG = os.environ.get("DEBUG", "True").lower() == "true"
 
 ALLOWED_HOSTS = [
     "127.0.0.1",
