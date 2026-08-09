@@ -291,15 +291,8 @@ EMAIL_HOST_PASSWORD = os.environ.get(
 if os.environ.get("RENDER"):
     db_config = DATABASES["default"]
 
-    print(
-        "SBWB Database Engine:",
-        db_config.get("ENGINE"),
-    )
-
-    print(
-        "SBWB Database Host:",
-        db_config.get("HOST", ""),
-    )
+    print("SBWB Database Engine:", db_config.get("ENGINE"),)
+    print("SBWB Database Host:", db_config.get("HOST", ""),)
 
     print(
         "SBWB Database Name:",
