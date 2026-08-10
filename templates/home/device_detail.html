@@ -1,6 +1,10 @@
 {% extends 'home/base.html' %}
 {% block title %}{{ bin.device_id }} · SBWB{% endblock %}
-{% block head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
+{% endblock %}
 {% block content %}
 <!-- Stylesheet Injection for Leaflet Map Engine -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -98,11 +102,25 @@
                     <a href="{% url 'device_report_pdf' bin.id %}?days={{ days }}" class="px-3 py-2 rounded-lg bg-[#064e3b] text-white text-xs font-bold">PDF</a>
                 </div>
             </div>
-            <div class="grid grid-cols-1 xl:grid-cols-2 gap-0 xl:divide-x divide-gray-100">
-                <div class="p-5 h-[330px]"><div class="text-xs font-bold text-gray-600 mb-3">Fill level & gas concentration</div><canvas id="deviceOperationalChart"></canvas></div>
-                <div class="p-5 h-[330px] border-t xl:border-t-0 border-gray-100"><div class="text-xs font-bold text-gray-600 mb-3">Temperature & humidity</div><canvas id="deviceEnvironmentChart"></canvas></div>
+            <div class="px-5 pt-4 flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 bg-white">
+                <p class="text-[11px] text-gray-500 pb-4">Scroll over a chart to zoom, drag to pan, or use the controls. Last stored telemetry remains visible while the device is offline.</p>
+                <div class="flex items-center gap-2 pb-4">
+                    <button type="button" onclick="zoomDeviceCharts(1.25)" class="px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-bold text-gray-700 hover:bg-gray-50">Zoom +</button>
+                    <button type="button" onclick="zoomDeviceCharts(0.8)" class="px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-bold text-gray-700 hover:bg-gray-50">Zoom −</button>
+                    <button type="button" onclick="resetDeviceCharts()" class="px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-bold text-gray-700 hover:bg-gray-50">Reset</button>
+                </div>
             </div>
-            {% if sample_count == 0 %}<div class="px-6 pb-5 text-xs text-amber-700">Historical charts will populate after new telemetry is received. Existing latest values remain available above.</div>{% endif %}
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-0 xl:divide-x divide-gray-100">
+                <div class="p-5 min-w-0">
+                    <div class="text-xs font-bold text-gray-600 mb-3">Fill level & gas concentration</div>
+                    <div class="relative h-[300px] pb-2"><canvas id="deviceOperationalChart"></canvas></div>
+                </div>
+                <div class="p-5 min-w-0 border-t xl:border-t-0 border-gray-100">
+                    <div class="text-xs font-bold text-gray-600 mb-3">Temperature & humidity</div>
+                    <div class="relative h-[300px] pb-2"><canvas id="deviceEnvironmentChart"></canvas></div>
+                </div>
+            </div>
+            {% if using_last_known %}<div class="px-6 pb-5 text-xs text-amber-700">No telemetry was recorded inside the selected period. The chart is showing the most recent stored reading from {{ last_known_at|date:"d M Y H:i" }}.</div>{% elif sample_count == 0 %}<div class="px-6 pb-5 text-xs text-amber-700">No stored telemetry is available yet. The chart will populate after the first telemetry sample is recorded.</div>{% endif %}
         </section>
 
         <!-- LOCATION -->
@@ -173,35 +191,133 @@
 
 <script>
     const deviceHistory = {{ history_json|safe }};
-    const chartBase = {responsive:true, maintainAspectRatio:false, animation:{duration:300}, plugins:{legend:{labels:{usePointStyle:true,boxWidth:8}}}, scales:{x:{grid:{display:false},ticks:{maxTicksLimit:8}},y:{beginAtZero:true,grid:{color:'#eef2f7'}}}};
+
+    const deviceZoomOptions = {
+        pan: {
+            enabled: true,
+            mode: 'x',
+            modifierKey: null,
+        },
+        zoom: {
+            wheel: { enabled: true, speed: 0.08 },
+            pinch: { enabled: true },
+            mode: 'x',
+        },
+        limits: {
+            x: { minRange: 1 }
+        }
+    };
+
+    const chartBase = {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 300 },
+        interaction: { intersect: false, mode: 'index' },
+        layout: { padding: { left: 4, right: 8, top: 2, bottom: 14 } },
+        plugins: {
+            legend: { labels: { usePointStyle: true, boxWidth: 8 } },
+            zoom: deviceZoomOptions,
+            tooltip: {
+                callbacks: {
+                    afterBody: function(items) {
+                        if (!items.length) return '';
+                        const idx = items[0].dataIndex;
+                        return deviceHistory[idx]?.lastKnown ? 'Last stored reading' : '';
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                grid: { display: false },
+                offset: true,
+                ticks: {
+                    maxTicksLimit: 7,
+                    autoSkip: true,
+                    maxRotation: 0,
+                    minRotation: 0,
+                    padding: 8,
+                    color: '#64748b',
+                    font: { size: 10 }
+                }
+            },
+            y: {
+                beginAtZero: true,
+                grid: { color: '#eef2f7' },
+                ticks: { padding: 6 }
+            }
+        }
+    };
+
     const op = document.getElementById('deviceOperationalChart');
     let operationalChart = null;
-    if (op) operationalChart = new Chart(op,{type:'line',data:{labels:deviceHistory.map(x=>x.label),datasets:[{label:'Fill %',data:deviceHistory.map(x=>x.fill),borderColor:'#059669',tension:.3,pointRadius:1},{label:'Gas ppm',data:deviceHistory.map(x=>x.gas),borderColor:'#d97706',tension:.3,pointRadius:1}]},options:chartBase});
+    if (op) operationalChart = new Chart(op, {
+        type: 'line',
+        data: {
+            labels: deviceHistory.map(x => x.label),
+            datasets: [
+                { label: 'Fill %', data: deviceHistory.map(x => x.fill), borderColor: '#059669', tension: .3, pointRadius: 3, pointHoverRadius: 5 },
+                { label: 'Gas ppm', data: deviceHistory.map(x => x.gas), borderColor: '#d97706', tension: .3, pointRadius: 3, pointHoverRadius: 5 }
+            ]
+        },
+        options: chartBase
+    });
+
     const env = document.getElementById('deviceEnvironmentChart');
     let environmentChart = null;
-    if (env) environmentChart = new Chart(env,{type:'line',data:{labels:deviceHistory.map(x=>x.label),datasets:[{label:'Ambient °C',data:deviceHistory.map(x=>x.temperature),borderColor:'#2563eb',tension:.3,pointRadius:1},{label:'Element °C',data:deviceHistory.map(x=>x.elementTemp),borderColor:'#dc2626',tension:.3,pointRadius:1},{label:'Humidity %',data:deviceHistory.map(x=>x.humidity),borderColor:'#7c3aed',tension:.3,pointRadius:1}]},options:chartBase});
+    if (env) environmentChart = new Chart(env, {
+        type: 'line',
+        data: {
+            labels: deviceHistory.map(x => x.label),
+            datasets: [
+                { label: 'Ambient °C', data: deviceHistory.map(x => x.temperature), borderColor: '#2563eb', tension: .3, pointRadius: 3, pointHoverRadius: 5 },
+                { label: 'Element °C', data: deviceHistory.map(x => x.elementTemp), borderColor: '#dc2626', tension: .3, pointRadius: 3, pointHoverRadius: 5 },
+                { label: 'Humidity %', data: deviceHistory.map(x => x.humidity), borderColor: '#7c3aed', tension: .3, pointRadius: 3, pointHoverRadius: 5 }
+            ]
+        },
+        options: chartBase
+    });
 
-    async function refreshDeviceAnalytics(){
+    function zoomDeviceCharts(factor) {
+        [operationalChart, environmentChart].forEach(chart => {
+            if (chart && typeof chart.zoom === 'function') chart.zoom(factor);
+        });
+    }
+
+    function resetDeviceCharts() {
+        [operationalChart, environmentChart].forEach(chart => {
+            if (chart && typeof chart.resetZoom === 'function') chart.resetZoom();
+        });
+    }
+
+    function replaceDeviceChartData(history) {
+        deviceHistory.splice(0, deviceHistory.length, ...history);
+        if (operationalChart) {
+            operationalChart.data.labels = history.map(x => x.label);
+            operationalChart.data.datasets[0].data = history.map(x => x.fill);
+            operationalChart.data.datasets[1].data = history.map(x => x.gas);
+            operationalChart.update('none');
+        }
+        if (environmentChart) {
+            environmentChart.data.labels = history.map(x => x.label);
+            environmentChart.data.datasets[0].data = history.map(x => x.temperature);
+            environmentChart.data.datasets[1].data = history.map(x => x.elementTemp);
+            environmentChart.data.datasets[2].data = history.map(x => x.humidity);
+            environmentChart.update('none');
+        }
+    }
+
+    async function refreshDeviceAnalytics() {
         try {
-            const r = await fetch("{% url 'device_analytics_api' bin.id %}?days={{ days }}", {headers:{'X-Requested-With':'XMLHttpRequest'}});
+            const r = await fetch("{% url 'device_analytics_api' bin.id %}?days={{ days }}", {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
             if (!r.ok) return;
             const data = await r.json();
-            const h = data.history;
-            if (operationalChart) {
-                operationalChart.data.labels = h.map(x=>x.label);
-                operationalChart.data.datasets[0].data = h.map(x=>x.fill);
-                operationalChart.data.datasets[1].data = h.map(x=>x.gas);
-                operationalChart.update('none');
-            }
-            if (environmentChart) {
-                environmentChart.data.labels = h.map(x=>x.label);
-                environmentChart.data.datasets[0].data = h.map(x=>x.temperature);
-                environmentChart.data.datasets[1].data = h.map(x=>x.elementTemp);
-                environmentChart.data.datasets[2].data = h.map(x=>x.humidity);
-                environmentChart.update('none');
-            }
+            replaceDeviceChartData(data.history || []);
         } catch (_) {}
     }
+
     setInterval(refreshDeviceAnalytics, 15000);
 </script>
 

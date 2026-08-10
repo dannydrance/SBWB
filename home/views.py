@@ -180,26 +180,71 @@ def _resolve_command_status(smart_bin):
     return smart_bin
 
 
+def _device_history_payload(smart_bin, days):
+    """Return selected-period telemetry, or the last stored reading when none exists.
+
+    Keeping the last known point means analytics remain informative while a device is
+    offline or when its latest sample falls outside the selected time window.
+    """
+    since = timezone.now() - timedelta(days=days)
+
+    # Take the newest 500 samples in the selected window, then display oldest -> newest.
+    recent_desc = list(
+        smart_bin.telemetry_records
+        .filter(recorded_at__gte=since)
+        .order_by('-recorded_at')[:500]
+    )
+    records = list(reversed(recent_desc))
+    using_last_known = False
+
+    if not records:
+        latest_record = smart_bin.telemetry_records.order_by('-recorded_at').first()
+        if latest_record is not None:
+            records = [latest_record]
+            using_last_known = True
+
+    if records:
+        history = [{
+            'label': timezone.localtime(r.recorded_at).strftime('%d %b %H:%M'),
+            'fill': r.fill_level,
+            'gas': r.gas_value,
+            'temperature': r.temperature,
+            'humidity': r.humidity,
+            'elementTemp': r.element_temp,
+            'lastKnown': using_last_known,
+        } for r in records]
+        last_known_at = records[-1].recorded_at
+    else:
+        # Very first device registration may predate the history table. Use the current
+        # persisted SmartBin values so the graph still has a truthful last-known point.
+        history = [{
+            'label': timezone.localtime(smart_bin.last_seen).strftime('%d %b %H:%M'),
+            'fill': smart_bin.fill_level,
+            'gas': smart_bin.gas_value,
+            'temperature': smart_bin.temperature,
+            'humidity': smart_bin.humidity,
+            'elementTemp': smart_bin.elementTemp,
+            'lastKnown': True,
+        }]
+        using_last_known = True
+        last_known_at = smart_bin.last_seen
+
+    return history, len(recent_desc), using_last_known, last_known_at
+
+
 @login_required(login_url='auth_view')
 def device_detail(request, bin_id):
     smart_bin = _resolve_command_status(get_object_or_404(SmartBin, id=bin_id))
     days = _period_days(request)
-    since = timezone.now() - timedelta(days=days)
-    records = list(smart_bin.telemetry_records.filter(recorded_at__gte=since).order_by('recorded_at')[:500])
-    history = [{
-        'label': timezone.localtime(r.recorded_at).strftime('%d %b %H:%M'),
-        'fill': r.fill_level,
-        'gas': r.gas_value,
-        'temperature': r.temperature,
-        'humidity': r.humidity,
-        'elementTemp': r.element_temp,
-    } for r in records]
+    history, sample_count, using_last_known, last_known_at = _device_history_payload(smart_bin, days)
 
     context = {
         'bin': smart_bin,
         'days': days,
         'history_json': json.dumps(history),
-        'sample_count': len(records),
+        'sample_count': sample_count,
+        'using_last_known': using_last_known,
+        'last_known_at': last_known_at,
         'telemetry_endpoint': request.build_absolute_uri('/api/telemetry/'),
     }
     return render(request, 'home/device_detail.html', context)
@@ -228,17 +273,14 @@ def analytics_api(request):
 def device_analytics_api(request, bin_id):
     smart_bin = get_object_or_404(SmartBin, id=bin_id)
     days = _period_days(request)
-    since = timezone.now() - timedelta(days=days)
-    records = smart_bin.telemetry_records.filter(recorded_at__gte=since).order_by('recorded_at')[:500]
-    data = [{
-        'label': timezone.localtime(r.recorded_at).strftime('%d %b %H:%M'),
-        'fill': r.fill_level,
-        'gas': r.gas_value,
-        'temperature': r.temperature,
-        'humidity': r.humidity,
-        'elementTemp': r.element_temp,
-    } for r in records]
-    return JsonResponse({'device': smart_bin.device_id, 'history': data, 'sample_count': len(data)})
+    data, sample_count, using_last_known, last_known_at = _device_history_payload(smart_bin, days)
+    return JsonResponse({
+        'device': smart_bin.device_id,
+        'history': data,
+        'sample_count': sample_count,
+        'using_last_known': using_last_known,
+        'last_known_at': timezone.localtime(last_known_at).isoformat() if last_known_at else None,
+    })
 
 
 @login_required(login_url='auth_view')

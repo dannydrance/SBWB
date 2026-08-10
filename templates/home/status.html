@@ -1,6 +1,10 @@
 {% extends 'home/base.html' %}
 {% block title %}Analytics & Reports · SBWB{% endblock %}
-{% block head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>{% endblock %}
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
+{% endblock %}
 {% block content %}
 <div class="max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-6 lg:py-8 space-y-6">
     <header class="flex flex-col lg:flex-row lg:items-end justify-between gap-5">
@@ -26,7 +30,17 @@
     </section>
 
     <section class="grid grid-cols-1 xl:grid-cols-12 gap-6">
-        <div class="xl:col-span-8 card overflow-hidden"><div class="p-5 border-b border-slate-100"><h2 class="font-extrabold text-slate-950">System telemetry trend</h2><p class="text-xs text-slate-500 mt-1">Average fill level, gas concentration and ambient temperature over the selected period.</p></div><div class="p-5 h-[360px]"><canvas id="trendChart"></canvas></div></div>
+        <div class="xl:col-span-8 card overflow-hidden">
+            <div class="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div><h2 class="font-extrabold text-slate-950">System telemetry trend</h2><p class="text-xs text-slate-500 mt-1">Average fill level, gas concentration and ambient temperature over the selected period.</p></div>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="trendChart.zoom(1.25)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold">Zoom +</button>
+                    <button type="button" onclick="trendChart.zoom(0.8)" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold">Zoom −</button>
+                    <button type="button" onclick="trendChart.resetZoom()" class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold">Reset</button>
+                </div>
+            </div>
+            <div class="p-5"><div class="relative h-[330px] pb-2"><canvas id="trendChart"></canvas></div></div>
+        </div>
         <div class="xl:col-span-4 card overflow-hidden"><div class="p-5 border-b border-slate-100"><h2 class="font-extrabold text-slate-950">Recorded alert mix</h2><p class="text-xs text-slate-500 mt-1">Distribution of telemetry samples by alert state.</p></div><div class="p-5 h-[360px]"><canvas id="alertChart"></canvas></div></div>
     </section>
 
@@ -43,8 +57,8 @@
 const trend = {{ trend_json|safe }};
 const alerts = {{ alert_json|safe }};
 const snapshot = {{ device_snapshot_json|safe }};
-const common = {responsive:true, maintainAspectRatio:false, animation:{duration:300}, plugins:{legend:{labels:{usePointStyle:true,boxWidth:8}}}};
-const trendChart = new Chart(document.getElementById('trendChart'), {type:'line',data:{labels:trend.map(x=>x.label),datasets:[{label:'Fill %',data:trend.map(x=>x.fill),borderColor:'#059669',backgroundColor:'rgba(5,150,105,.08)',tension:.3,pointRadius:1},{label:'Gas ppm',data:trend.map(x=>x.gas),borderColor:'#d97706',tension:.3,pointRadius:1},{label:'Ambient °C',data:trend.map(x=>x.temperature),borderColor:'#2563eb',tension:.3,pointRadius:1}]},options:{...common,scales:{y:{beginAtZero:true,grid:{color:'#eef2f7'}},x:{grid:{display:false},ticks:{maxTicksLimit:10}}}}});
+const common = {responsive:true, maintainAspectRatio:false, animation:{duration:300}, layout:{padding:{bottom:14}}, plugins:{legend:{labels:{usePointStyle:true,boxWidth:8}}}};
+const trendChart = new Chart(document.getElementById('trendChart'), {type:'line',data:{labels:trend.map(x=>x.label),datasets:[{label:'Fill %',data:trend.map(x=>x.fill),borderColor:'#059669',backgroundColor:'rgba(5,150,105,.08)',tension:.3,pointRadius:2},{label:'Gas ppm',data:trend.map(x=>x.gas),borderColor:'#d97706',tension:.3,pointRadius:2},{label:'Ambient °C',data:trend.map(x=>x.temperature),borderColor:'#2563eb',tension:.3,pointRadius:2}]},options:{...common,plugins:{...common.plugins,zoom:{pan:{enabled:true,mode:'x'},zoom:{wheel:{enabled:true,speed:0.08},pinch:{enabled:true},mode:'x'}}},scales:{y:{beginAtZero:true,grid:{color:'#eef2f7'}},x:{grid:{display:false},offset:true,ticks:{maxTicksLimit:8,maxRotation:0,minRotation:0,padding:8}}}}});
 const alertChart = new Chart(document.getElementById('alertChart'), {type:'doughnut',data:{labels:alerts.map(x=>x.label),datasets:[{data:alerts.map(x=>x.value),backgroundColor:['#059669','#e11d48','#d97706'],borderWidth:0}]},options:{...common,cutout:'68%',plugins:{legend:{position:'bottom',labels:{usePointStyle:true,boxWidth:8}}}}});
 const deviceCompareChart = new Chart(document.getElementById('deviceCompareChart'), {type:'bar',data:{labels:snapshot.map(x=>x.device),datasets:[{label:'Fill %',data:snapshot.map(x=>x.fill),backgroundColor:'#059669',borderRadius:6},{label:'Gas ppm',data:snapshot.map(x=>x.gas),backgroundColor:'#d97706',borderRadius:6}]},options:{...common,scales:{y:{beginAtZero:true,grid:{color:'#eef2f7'}},x:{grid:{display:false}}}}});
 
