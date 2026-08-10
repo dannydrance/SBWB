@@ -23,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = ''
+SECRET_KEY = 'django-insecure-p=km*yq3vo)-k5-5h@qugxv!pgr9vmf)i_n$^#(-qw^b1ukmg_'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -86,9 +86,14 @@ DATABASES = {
 }
 
 database_url = os.environ.get("DATABASE_URL")
-database_url = 'postgresql://fare_5z6v_user:2zAmY4bvpLzWELhgq44qVszUku9O0Oex@dpg-d4724oripnbc73f8mg3g-a.oregon-postgres.render.com/fare_5z6v'
-DATABASES["default"] = dj_database_url.parse(database_url)
+#database_url = 'postgresql://sbwb:acAU4D0EYgJtLBESPVmwITxFs2Nf8Qf6@dpg-d9s8p02fngtc73eqp62g-a/sbwb'
 
+if database_url:
+    DATABASES["default"] = dj_database_url.parse(
+        database_url,
+        conn_max_age=600,
+        conn_health_checks=True,
+    )
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
