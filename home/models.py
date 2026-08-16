@@ -34,6 +34,9 @@ class SmartBin(models.Model):
     binLevel = models.FloatField()
     heaterState = models.BooleanField(default=False)
     uvState = models.BooleanField(default=False)
+    lidState = models.IntegerField(default=0)
+    limitClosed = models.BooleanField(default=False)
+    irDetected = models.BooleanField(default=False)
 
     pending_command = models.CharField(max_length=50, blank=True, null=True, default=None)
 

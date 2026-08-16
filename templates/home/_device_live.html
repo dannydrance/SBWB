@@ -68,11 +68,24 @@
         </div>
         <div class="px-6 divide-y divide-gray-100 text-sm flex-grow">
             <div class="py-3.5 flex justify-between items-center">
-                <span class="font-medium text-gray-600">Lid Interlock</span>
-                <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 font-mono">
-                    <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full mr-1.5"></span>
-                    {% if bin.lid %}CLOSED{% else %}OPEN{% endif %}
+                <span class="font-medium text-gray-600">Lid Position</span>
+                <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold {% if bin.lid %}bg-amber-50 text-amber-800 border-amber-200{% else %}bg-emerald-50 text-emerald-800 border-emerald-200{% endif %} border font-mono">
+                    <span class="w-1.5 h-1.5 {% if bin.lid %}bg-amber-500{% else %}bg-emerald-500{% endif %} rounded-full mr-1.5"></span>
+                    {% if bin.lidState == 1 %}OPENING{% elif bin.lidState == 2 %}OPEN{% elif bin.lidState == 3 %}CLOSING{% elif bin.lid %}OPEN{% else %}CLOSED{% endif %}
                 </span>
+            </div>
+
+            <div class="py-3.5 flex justify-between items-center">
+                <span class="font-medium text-gray-600">Limit Switch</span>
+                <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold {% if bin.limitClosed %}bg-emerald-50 text-emerald-800 border-emerald-200{% else %}bg-rose-50 text-rose-800 border-rose-200{% endif %} border font-mono">{% if bin.limitClosed %}HIGH / CLOSED{% else %}LOW / OPEN{% endif %}</span>
+            </div>
+            <div class="py-3.5 flex justify-between items-center">
+                <span class="font-medium text-gray-600">IR Proximity</span>
+                <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold {% if bin.irDetected %}bg-sky-50 text-sky-800 border-sky-200{% else %}bg-gray-50 text-gray-600 border-gray-200{% endif %} border font-mono">{% if bin.irDetected %}DETECTED{% else %}CLEAR{% endif %}</span>
+            </div>
+            <div class="py-3.5 flex justify-between items-center">
+                <span class="font-medium text-gray-600">Lock Solenoid</span>
+                <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold {% if bin.interlock %}bg-amber-50 text-amber-800 border-amber-200{% else %}bg-emerald-50 text-emerald-800 border-emerald-200{% endif %} border font-mono">{% if bin.interlock %}ACTIVE{% else %}IDLE{% endif %}</span>
             </div>
             <div class="py-3.5 flex justify-between items-center">
                 <span class="font-medium text-gray-600">UV Disinfection</span>

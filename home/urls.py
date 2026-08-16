@@ -20,5 +20,6 @@ urlpatterns = [
     path('dashboard/table-live/', views.dashboard_table_fragment, name='dashboard_table_fragment'),
     path('device/<int:bin_id>/live/', views.device_live_fragment, name='device_live_fragment'),
     path('device/<int:bin_id>/controls-live/', views.device_controls_fragment, name='device_controls_fragment'),
+    path('device/<int:bin_id>/header-live/', views.device_header_fragment, name='device_header_fragment'),
     path('api/device/<int:bin_id>/<str:command>/', views.device_command, name='api_device_command'),
 ]

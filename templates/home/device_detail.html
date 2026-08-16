@@ -15,53 +15,8 @@
     <div class="flex-grow p-6 space-y-6 max-w-[1600px] w-full mx-auto" id="dashboard-container">
 
         <!-- HEADER: identity, status, and the fill-level capacity gauge as the page's one signature element -->
-        <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <div class="p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div class="space-y-1.5">
-                    <a href="{% url 'dashboard_home' %}" class="inline-flex items-center space-x-1.5 text-xs font-bold text-[#005f53] hover:text-[#00463d] uppercase tracking-wider transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-                        </svg>
-                        <span>Back to Dashboard</span>
-                    </a>
-                    <h1 class="text-3xl font-extrabold text-gray-900 tracking-tight font-mono">{{ bin.device_id }}</h1>
-                    <p class="text-sm text-gray-500 font-medium">{{ bin.location_name }}</p>
-                    <div class="flex flex-wrap gap-2 pt-2">
-                        <a href="#analytics" class="inline-flex items-center px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">View analytics</a>
-                        <a href="{% url 'device_report_pdf' bin.id %}?days={{ days }}" class="inline-flex items-center px-3 py-2 rounded-lg bg-[#064e3b] text-white text-xs font-bold">PDF report</a>
-                    </div>
-                </div>
-
-                <div class="flex md:flex-col justify-between items-center md:items-end gap-2 border-t md:border-t-0 pt-4 md:pt-0 border-gray-100">
-                    {% if bin.is_online %}
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 uppercase tracking-wider">
-                            <span class="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse"></span>Online
-                        </span>
-                    {% else %}
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 uppercase tracking-wider">
-                            <span class="w-2 h-2 bg-rose-500 rounded-full mr-2"></span>Offline
-                        </span>
-                    {% endif %}
-                    <span class="text-xs text-gray-400 font-semibold uppercase tracking-wider">
-                        Last seen <strong class="text-gray-600 font-mono normal-case">{{ bin.duration_status }}</strong>
-                    </span>
-                </div>
-            </div>
-
-            <!-- Signature element: fill-level capacity strip. This is the number the whole -->
-            <!-- device exists to report, so it lives in the header rather than buried in a KPI grid. -->
-            <div class="px-6 pb-5 pt-1">
-                <div class="flex items-baseline justify-between mb-1.5">
-                    <span class="text-[11px] font-bold uppercase tracking-widest text-gray-400">Bin Capacity</span>
-                    <span class="text-sm font-mono font-bold {% if bin.fill_level > 85 %}text-rose-600{% elif bin.fill_level > 50 %}text-amber-600{% else %}text-[#005f53]{% endif %}">{{ bin.fill_level|default:"0" }}%</span>
-                </div>
-                <div class="relative w-full h-2.5 rounded-full bg-gray-100 overflow-hidden">
-                    <div class="absolute inset-y-0 left-0 bg-gradient-to-r from-[#005f53] via-amber-400 to-rose-500 opacity-15"></div>
-                    <div class="absolute inset-y-0 left-0 rounded-full transition-all duration-700 {% if bin.fill_level > 85 %}bg-rose-500{% elif bin.fill_level > 50 %}bg-amber-500{% else %}bg-[#005f53]{% endif %}" style="width: {{ bin.fill_level|default:0 }}%"></div>
-                    <div class="absolute inset-y-0 left-[50%] w-px bg-white/70"></div>
-                    <div class="absolute inset-y-0 left-[85%] w-px bg-white/70"></div>
-                </div>
-            </div>
+        <div id="device-header-live" class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden" hx-get="{% url 'device_header_fragment' bin.id %}" hx-trigger="every 1s" hx-swap="innerHTML">
+            {% include 'home/_device_header.html' %}
         </div>
 
         <!-- SECTION NAV -->
@@ -78,7 +33,7 @@
             <div id="device-live"
                  class="space-y-6"
                  hx-get="{% url 'device_live_fragment' bin.id %}"
-                 hx-trigger="every 3s"
+                 hx-trigger="every 1s"
                  hx-swap="innerHTML">
                 {% include 'home/_device_live.html' %}
             </div>
@@ -133,7 +88,7 @@
         </div>
 
         <!-- CONTROLS: independently refreshed so connectivity and hardware state remain live -->
-        <div id="controls" class="scroll-mt-36" hx-get="{% url 'device_controls_fragment' bin.id %}" hx-trigger="every 2s" hx-swap="innerHTML">
+        <div id="controls" class="scroll-mt-36" hx-get="{% url 'device_controls_fragment' bin.id %}" hx-trigger="every 1s" hx-swap="innerHTML">
             {% include 'home/_device_controls.html' %}
         </div>
 

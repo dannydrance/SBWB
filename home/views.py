@@ -251,6 +251,12 @@ def device_detail(request, bin_id):
 
 
 @login_required(login_url='auth_view')
+def device_header_fragment(request, bin_id):
+    smart_bin = _resolve_command_status(get_object_or_404(SmartBin, id=bin_id))
+    return render(request, 'home/_device_header.html', {'bin': smart_bin})
+
+
+@login_required(login_url='auth_view')
 def device_live_fragment(request, bin_id):
     smart_bin = _resolve_command_status(get_object_or_404(SmartBin, id=bin_id))
     return render(request, 'home/_device_live.html', {'bin': smart_bin})
@@ -519,6 +525,9 @@ def bin_telemetry_ingress(request):
                 'binLevel': data.get('binLevel', 0),
                 'heaterState': data.get('heaterState', 0),
                 'uvState': data.get('uvState', 0),
+                'lidState': data.get('lidState', 0),
+                'limitClosed': data.get('limitClosed', 0),
+                'irDetected': data.get('irDetected', 0),
             },
         )
 
@@ -551,13 +560,16 @@ def bin_telemetry_ingress(request):
         if ack and ack != 'NONE' and smart_bin.last_command == ack and smart_bin.last_command_status == 'PENDING':
             smart_bin.last_command_status = 'ACKED'
             smart_bin.last_command_time = timezone.now()
-            smart_bin.save(update_fields=['last_command_status', 'last_command_time'])
+            # A command remains queued until the device has explicitly ACKed it.
+            # This prevents stop-uv/start-uv from being lost when a single HTTP
+            # response is dropped after the server has already read the queue.
+            if smart_bin.pending_command == ack:
+                smart_bin.pending_command = None
+                smart_bin.save(update_fields=['last_command_status', 'last_command_time', 'pending_command'])
+            else:
+                smart_bin.save(update_fields=['last_command_status', 'last_command_time'])
 
         cmd_to_send = smart_bin.pending_command or 'NONE'
-        if smart_bin.pending_command:
-            smart_bin.pending_command = None
-            smart_bin.save(update_fields=['pending_command'])
-
         return JsonResponse({'status': 'OK', 'command': cmd_to_send}, status=200)
 
     except (json.JSONDecodeError, ValueError, TypeError):

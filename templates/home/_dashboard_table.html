@@ -16,6 +16,9 @@
                     <th class="p-4">Connection</th>
                     <th class="p-4">Fullness</th>
                     <th class="p-4">Gas (AQI)</th>
+                    <th class="p-4">Lid</th>
+                    <th class="p-4">UV-C</th>
+                    <th class="p-4">Heater</th>
                     <th class="p-4 pr-6 text-right">Actions</th>
                 </tr>
             </thead>
@@ -42,6 +45,9 @@
                     <td class="p-4 font-mono font-medium {% if bin.gas_value > 600 %}text-amber-600{% else %}text-emerald-700{% endif %}">
                         {{ bin.gas_value }} ppm
                     </td>
+                    <td class="p-4"><span class="inline-flex px-2 py-0.5 rounded text-xs font-bold {% if bin.lid %}bg-amber-50 text-amber-800{% else %}bg-emerald-50 text-emerald-800{% endif %}">{% if bin.lidState == 1 %}OPENING{% elif bin.lidState == 2 %}OPEN{% elif bin.lidState == 3 %}CLOSING{% elif bin.lid %}OPEN{% else %}CLOSED{% endif %}</span></td>
+                    <td class="p-4"><span class="inline-flex px-2 py-0.5 rounded text-xs font-bold {% if bin.uvState %}bg-violet-50 text-violet-800{% else %}bg-slate-100 text-slate-600{% endif %}">{% if bin.uvState %}ON{% else %}OFF{% endif %}</span></td>
+                    <td class="p-4"><span class="inline-flex px-2 py-0.5 rounded text-xs font-bold {% if bin.heaterState %}bg-amber-50 text-amber-800{% else %}bg-slate-100 text-slate-600{% endif %}">{% if bin.heaterState %}ON{% else %}OFF{% endif %}</span></td>
                     <td class="p-4 pr-6 text-right">
                         <a href="{% url 'device_detail' bin.id %}"
                         class="inline-flex items-center px-3 py-1.5 rounded-md bg-[#005f53] text-white text-xs font-semibold hover:bg-[#00463d] transition">
@@ -51,7 +57,7 @@
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="6" class="p-10 text-center text-gray-400 italic bg-gray-50/50">No smart bins mapped in data store.</td>
+                    <td colspan="9" class="p-10 text-center text-gray-400 italic bg-gray-50/50">No smart bins mapped in data store.</td>
                 </tr>
                 {% endfor %}
             </tbody>

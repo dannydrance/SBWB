@@ -17,7 +17,7 @@
         </div>
     </header>
 
-    <div id="dashboard-stats" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" hx-get="{% url 'dashboard_stats_fragment' %}" hx-trigger="every 3s" hx-swap="innerHTML">
+    <div id="dashboard-stats" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4" hx-get="{% url 'dashboard_stats_fragment' %}" hx-trigger="every 1s" hx-swap="innerHTML">
         {% include 'home/_dashboard_stats.html' %}
     </div>
 
@@ -40,7 +40,7 @@
         </div>
     </section>
 
-    <section id="dashboard-table-live" class="space-y-6" hx-get="{% url 'dashboard_table_fragment' %}" hx-trigger="every 3s" hx-swap="innerHTML">
+    <section id="dashboard-table-live" class="space-y-6" hx-get="{% url 'dashboard_table_fragment' %}" hx-trigger="every 1s" hx-swap="innerHTML">
         {% include 'home/_dashboard_table.html' %}
     </section>
 </div>

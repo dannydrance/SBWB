@@ -25,15 +25,45 @@
         </div>
         <div class="p-6 divide-y divide-gray-100 flex-grow">
             <div class="py-4 flex items-center justify-between gap-5">
-                <div><p class="text-sm font-bold text-gray-800">Lid interlock</p><p class="text-xs text-gray-500">{{ bin.interlock|yesno:"Locked,Unlocked" }}</p></div>
-                <button type="button" aria-label="Toggle lid interlock" class="relative inline-flex h-8 w-16 shrink-0 items-center rounded-full transition {% if bin.interlock %}bg-emerald-600{% else %}bg-slate-300{% endif %}" hx-post="{% if bin.interlock %}{% url 'api_device_command' bin.id 'unlock' %}{% else %}{% url 'api_device_command' bin.id 'lock' %}{% endif %}" hx-target="#command-banner" hx-swap="innerHTML"><span class="inline-block h-6 w-6 rounded-full bg-white shadow transition-transform {% if bin.interlock %}translate-x-9{% else %}translate-x-1{% endif %}"></span></button>
+                <div>
+                    <p class="text-sm font-bold text-gray-800">Lid control</p>
+                    <p class="text-xs {% if bin.lid %}text-amber-600{% else %}text-emerald-600{% endif %}">
+                        Current: {% if bin.lid %}OPEN{% else %}CLOSED{% endif %} · next action: {% if bin.lid %}CLOSE{% else %}OPEN{% endif %}
+                    </p>
+                    <p class="text-[11px] text-gray-400 mt-0.5">Safe sequence is handled automatically by the Nano controller.</p>
+                </div>
+                <button type="button"
+                        aria-label="{% if bin.lid %}Close lid{% else %}Open lid{% endif %}"
+                        title="{% if bin.lid %}Close lid{% else %}Open lid{% endif %}"
+                        class="relative inline-flex h-8 w-16 shrink-0 items-center rounded-full transition {% if bin.lid %}bg-amber-500{% else %}bg-slate-300{% endif %}"
+                        hx-post="{% url 'api_device_command' bin.id 'toggle-lid' %}"
+                        hx-target="#command-banner"
+                        hx-swap="innerHTML">
+                    <span class="inline-block h-6 w-6 rounded-full bg-white shadow transition-transform {% if bin.lid %}translate-x-9{% else %}translate-x-1{% endif %}"></span>
+                </button>
             </div>
             <div class="py-4 flex items-center justify-between gap-5">
-                <div><p class="text-sm font-bold text-gray-800">UV disinfection</p><p class="text-xs {% if bin.uvState %}text-emerald-600{% else %}text-gray-500{% endif %}">{% if bin.uvState %}Active{% else %}Off{% endif %}</p></div>
+                <div><p class="text-sm font-bold text-gray-800">Lid position</p><p class="text-xs {% if bin.lid %}text-amber-600{% else %}text-emerald-600{% endif %}">Current: {% if bin.lid %}OPEN{% else %}CLOSED{% endif %} · from lid sensor/state</p></div>
+                <span class="px-3 py-1.5 rounded-full text-xs font-bold {% if bin.lid %}bg-amber-100 text-amber-800{% else %}bg-emerald-100 text-emerald-800{% endif %}">{% if bin.lid %}OPEN{% else %}CLOSED{% endif %}</span>
+            </div>
+            <div class="py-4 flex items-center justify-between gap-5">
+                <div><p class="text-sm font-bold text-gray-800">Lid motion</p><p class="text-xs text-gray-500">Nano state machine</p></div>
+                <span class="px-3 py-1.5 rounded-full text-xs font-bold border {% if bin.lidState == 1 %}bg-amber-50 text-amber-800 border-amber-200{% elif bin.lidState == 2 %}bg-sky-50 text-sky-800 border-sky-200{% elif bin.lidState == 3 %}bg-amber-50 text-amber-800 border-amber-200{% else %}bg-emerald-50 text-emerald-800 border-emerald-200{% endif %}">{% if bin.lidState == 1 %}OPENING{% elif bin.lidState == 2 %}OPEN{% elif bin.lidState == 3 %}CLOSING{% else %}CLOSED{% endif %}</span>
+            </div>
+            <div class="py-4 flex items-center justify-between gap-5">
+                <div><p class="text-sm font-bold text-gray-800">Limit switch</p><p class="text-xs text-gray-500">Physical closed-lid confirmation</p></div>
+                <span class="px-3 py-1.5 rounded-full text-xs font-bold {% if bin.limitClosed %}bg-emerald-100 text-emerald-800{% else %}bg-rose-100 text-rose-800{% endif %}">{% if bin.limitClosed %}HIGH · CLOSED{% else %}LOW · NOT CLOSED{% endif %}</span>
+            </div>
+            <div class="py-4 flex items-center justify-between gap-5">
+                <div><p class="text-sm font-bold text-gray-800">IR sensor</p><p class="text-xs text-gray-500">Contactless lid trigger</p></div>
+                <span class="px-3 py-1.5 rounded-full text-xs font-bold {% if bin.irDetected %}bg-sky-100 text-sky-800{% else %}bg-slate-100 text-slate-600{% endif %}">{% if bin.irDetected %}DETECTED{% else %}CLEAR{% endif %}</span>
+            </div>
+            <div class="py-4 flex items-center justify-between gap-5">
+                <div><p class="text-sm font-bold text-gray-800">UV disinfection</p><p class="text-xs {% if bin.uvState %}text-emerald-600{% else %}text-gray-500{% endif %}">{% if bin.uvState %}Current: ON · next action: TURN OFF{% else %}Current: OFF · next action: TURN ON{% endif %}</p></div>
                 <button type="button" aria-label="Toggle UV" class="relative inline-flex h-8 w-16 shrink-0 items-center rounded-full transition {% if bin.uvState %}bg-violet-600{% else %}bg-slate-300{% endif %}" hx-post="{% if bin.uvState %}{% url 'api_device_command' bin.id 'stop-uv' %}{% else %}{% url 'api_device_command' bin.id 'start-uv' %}{% endif %}" hx-target="#command-banner" hx-swap="innerHTML"><span class="inline-block h-6 w-6 rounded-full bg-white shadow transition-transform {% if bin.uvState %}translate-x-9{% else %}translate-x-1{% endif %}"></span></button>
             </div>
             <div class="py-4 flex items-center justify-between gap-5">
-                <div><p class="text-sm font-bold text-gray-800">Heater control</p><p class="text-xs {% if bin.heaterState %}text-amber-600{% else %}text-gray-500{% endif %}">{% if bin.heaterState %}Relay active{% else %}Relay off{% endif %}</p></div>
+                <div><p class="text-sm font-bold text-gray-800">Heater control</p><p class="text-xs {% if bin.heaterState %}text-amber-600{% else %}text-gray-500{% endif %}">{% if bin.heaterState %}Current: ON · next action: TURN OFF{% else %}Current: OFF · next action: TURN ON{% endif %}</p></div>
                 <button type="button" aria-label="Toggle heater" class="relative inline-flex h-8 w-16 shrink-0 items-center rounded-full transition {% if bin.heaterState %}bg-amber-500{% else %}bg-slate-300{% endif %}" hx-post="{% if bin.heaterState %}{% url 'api_device_command' bin.id 'stop-heater' %}{% else %}{% url 'api_device_command' bin.id 'start-heater' %}{% endif %}" hx-target="#command-banner" hx-swap="innerHTML"><span class="inline-block h-6 w-6 rounded-full bg-white shadow transition-transform {% if bin.heaterState %}translate-x-9{% else %}translate-x-1{% endif %}"></span></button>
             </div>
             <div class="pt-5">
